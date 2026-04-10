@@ -1,0 +1,18 @@
+{
+  "env": {
+    "GITLAB_URL": "https://gitlab.amniltech.com",
+    "GITLAB_TOKEN": "XRJiZr8B_DbF9YxD6Amr",
+    "GITLAB_PRIVATE_TOKEN": "XRJiZr8B_DbF9YxD6Amr",
+    "GITLAB_HOST": "gitlab.amniltech.com",
+    "GITLAB_BASEURL": "https://gitlab.amniltech.com",
+    "GITLAB_PROJECT_ID": "2266"
+  },
+  "pluginConfigs": {
+    "gitlab@anthropic-tools": {
+      "options": {
+        "gitlabUrl": "https://gitlab.amniltech.com",
+        "gitlabToken": "XRJiZr8B_DbF9YxD6Amr"
+      }
+    }
+  }
+}

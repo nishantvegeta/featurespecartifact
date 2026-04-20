@@ -1,0 +1,6 @@
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.csproj.AssemblyReference.cache
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.GeneratedMSBuildEditorConfig.editorconfig
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.AssemblyInfoInputs.cache
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.AssemblyInfo.cs
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.csproj.CoreCompileInputs.cache
+D:\task\api\src\Amnil.TradeFinance.Domain.Shared\obj\Release\net8.0\Amnil.TradeFinance.Domain.Shared.sourcelink.json

@@ -1,0 +1,67 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "api", "api", "{D82C56D6-B2CD-F611-9E31-04638F7EC30E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7218997D-3624-D017-E052-9D306D24EF0B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.Application", "api\src\Amnil.TradeFinance.Application\Amnil.TradeFinance.Application.csproj", "{DC023620-04F2-5638-BE6B-96CB90F589C4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.Application.Contracts", "api\src\Amnil.TradeFinance.Application.Contracts\Amnil.TradeFinance.Application.Contracts.csproj", "{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.Domain", "api\src\Amnil.TradeFinance.Domain\Amnil.TradeFinance.Domain.csproj", "{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.Domain.Shared", "api\src\Amnil.TradeFinance.Domain.Shared\Amnil.TradeFinance.Domain.Shared.csproj", "{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.EntityFrameworkCore", "api\src\Amnil.TradeFinance.EntityFrameworkCore\Amnil.TradeFinance.EntityFrameworkCore.csproj", "{441CE90B-0947-98D6-0E5A-45A3B9B0DF68}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Amnil.TradeFinance.HttpApi.Host", "api\src\Amnil.TradeFinance.HttpApi.Host\Amnil.TradeFinance.HttpApi.Host.csproj", "{425D6F31-6B8D-247A-8B10-F28D9E04175F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DC023620-04F2-5638-BE6B-96CB90F589C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC023620-04F2-5638-BE6B-96CB90F589C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC023620-04F2-5638-BE6B-96CB90F589C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC023620-04F2-5638-BE6B-96CB90F589C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{441CE90B-0947-98D6-0E5A-45A3B9B0DF68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{441CE90B-0947-98D6-0E5A-45A3B9B0DF68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{441CE90B-0947-98D6-0E5A-45A3B9B0DF68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{441CE90B-0947-98D6-0E5A-45A3B9B0DF68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{425D6F31-6B8D-247A-8B10-F28D9E04175F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{425D6F31-6B8D-247A-8B10-F28D9E04175F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{425D6F31-6B8D-247A-8B10-F28D9E04175F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{425D6F31-6B8D-247A-8B10-F28D9E04175F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7218997D-3624-D017-E052-9D306D24EF0B} = {D82C56D6-B2CD-F611-9E31-04638F7EC30E}
+		{DC023620-04F2-5638-BE6B-96CB90F589C4} = {7218997D-3624-D017-E052-9D306D24EF0B}
+		{702F9E68-F1C7-FFA1-2FFA-7CA66A42040F} = {7218997D-3624-D017-E052-9D306D24EF0B}
+		{C1C4C0BF-CDA0-5415-E96F-740A1EE196CD} = {7218997D-3624-D017-E052-9D306D24EF0B}
+		{E9476C8D-BAA6-1EAD-B6E8-5E78D4DBD2B6} = {7218997D-3624-D017-E052-9D306D24EF0B}
+		{441CE90B-0947-98D6-0E5A-45A3B9B0DF68} = {7218997D-3624-D017-E052-9D306D24EF0B}
+		{425D6F31-6B8D-247A-8B10-F28D9E04175F} = {7218997D-3624-D017-E052-9D306D24EF0B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AA48BA80-6DD0-4084-B2FF-7BFEEC657F1B}
+	EndGlobalSection
+EndGlobal

@@ -2,7 +2,9 @@
 
 A Decision is a lightweight architecture/design decision record (ADR) capturing an architectural or domain approach chosen for this feature, its rationale, and rejected alternatives. Decisions are preserved so future work can understand *why* a choice was made, not just what.
 
-> **Enforcement:** Every Decision must list at least one rejected alternative with the reason for rejection. A Decision without alternatives is indistinguishable from a statement and should be removed.
+> **Field contract:** Required fields and enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create a Decision, title and content guidance, the worked example, and common defects.
+>
+> Every Decision must list at least one rejected alternative with the reason for rejection. A Decision without alternatives is indistinguishable from a statement and should be removed.
 
 ---
 
@@ -18,86 +20,38 @@ Create a Decision when:
 
 Do **not** create a Decision for:
 
-- Trivial choices dictated by ABP convention (using `PagedResultDto<T>` is the default, no decision needed).
+- Trivial choices dictated by ABP convention (using `PagedResultDto<T>` is the default — no decision needed).
 - Implementation details that belong in code comments.
 - Business rules — those belong as Entity invariants or Command preconditions.
 
 ---
 
-## Required fields
-
-Every Decision entry must include these bold-labeled fields:
-
-- `**Node type:** Decision`
-- `**Title:** <short, sentence-case>`
-- `**Context:** <1–3 sentences describing the situation and constraints>`
-- `**Decision:** <the chosen approach, one paragraph>`
-- `**Rationale:** <bullet list of reasons supporting the decision>`
-- `**Rejected alternatives:** <bullet list; each with the alternative and why it was rejected>`
-- `**Consequences:** <bullet list; positive and negative outcomes of the decision>`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-Optional:
-
-- `**Status:** Accepted | Proposed | Deprecated | Superseded by <link>` *(default: Accepted)*
-- `**Related Conflicts:** <wiki links>` *(when the Decision resolves or partially resolves a Conflict)*
-- `**Revisit if:** <conditions that would trigger reconsidering>`
-
----
-
 ## Title
 
-Short and scannable. Sentence case:
+Short and scannable. Sentence case. The title must disclose the decision:
 
-- `Use string-stored enums for all workflow state fields`
-- `Soft-delete canceled registration requests; hard-delete never`
-- `Publish distributed events synchronously within the same transaction`
-- `Index RegistrationRequest by (TenantId, SubmissionTime DESC)`
+- ✅ `Use string-stored enums for all workflow state fields`
+- ✅ `Soft-delete canceled registration requests; hard-delete never`
+- ✅ `Publish distributed events synchronously within the same transaction`
+- ✅ `Index RegistrationRequest by (TenantId, SubmissionTime DESC)`
 
-Avoid:
-
-- One-word titles (`Events`).
-- Titles that don't disclose the decision (`Event strategy` — decide → `Publish distributed events synchronously within the same transaction`).
+Avoid one-word titles (`Events`) and titles that don't disclose the decision (`Event strategy` → rewrite as `Publish distributed events synchronously within the same transaction`).
 
 ---
 
-## Context
+## Context, Decision, Rationale
 
-State the situation that forced the decision:
+**Context** — 1–3 sentences stating the situation that forced the decision: what needed to be resolved, what constraints applied (tech stack, existing patterns, compliance), what clues from FRS drove the need. Long context paragraphs signal that the decision isn't clearly scoped.
 
-- What needed to be resolved.
-- What constraints applied (tech stack, existing patterns, compliance).
-- What clues from FRS drove the need.
+**Decision** — one paragraph stating the chosen approach. Avoid code. Name components by role ("the aggregate", "the repository", "the application service"). Specific class names are fine when they unambiguously identify the thing being decided.
 
-Keep it to 1–3 sentences. Long context paragraphs are a sign the decision isn't clearly scoped.
-
----
-
-## Decision
-
-State the chosen approach clearly and concisely. One paragraph.
-
-Avoid code. Name components by role: "the aggregate", "the repository", "the application service". Specific class names are fine when they unambiguously identify the thing being decided.
-
----
-
-## Rationale
-
-Bullet list of reasons. Each bullet is a standalone argument for the decision. Ground rationale in:
-
-- FRS clauses.
-- Performance, scalability, or reliability concerns.
-- Operational or maintenance considerations.
-- Alignment with existing project patterns (reference `CLAUDE.md` conventions).
+**Rationale** — bullet list, each a standalone argument. Ground each bullet in: an FRS clause, a performance/scalability/reliability concern, an operational/maintenance consideration, or alignment with an existing project pattern (reference CLAUDE.md conventions).
 
 ---
 
 ## Rejected alternatives
 
-At least one alternative must be listed. For each:
-
-- Name the alternative.
-- Describe why it was rejected (one sentence is enough).
+At least one alternative must be listed. For each: name the alternative, then describe why it was rejected (one sentence is enough).
 
 If the FRS did not explicitly raise an alternative, the synthesizer may introduce a plausible one — but the rejection reason must still be grounded in the FRS constraints.
 
@@ -105,7 +59,9 @@ If the FRS did not explicitly raise an alternative, the synthesizer may introduc
 
 ## Consequences
 
-Positive and negative outcomes of the decision. Include both, honestly. Format:
+Positive and negative outcomes of the decision. Include both, honestly.
+
+Format:
 
 - **Positive:** `<outcome>`
 - **Negative:** `<outcome>`

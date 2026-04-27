@@ -2,7 +2,9 @@
 
 An Architecture Blueprint captures high-level system topology, cross-cutting patterns, or layering decisions that don't fit cleanly inside an Entity, Command, Flow, or Decision. Blueprints exist to orient implementers — they show the shape of the feature at a level above individual components.
 
-> **Enforcement:** Architecture Blueprints are the **only** node type where Mermaid diagrams are permitted, and only inside the `**Diagram:**` field. No code fences, no C# snippets, no schemas — just topology and flow at a high level.
+> **Field contract:** Required fields and enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create a Blueprint, Mermaid diagram conventions, the worked example, and common defects.
+>
+> Architecture Blueprints are the **only** node type where Mermaid diagrams are permitted, and only inside the `**Diagram:**` field. No code fences, no C# snippets, no schemas — just topology and flow at a high level.
 
 ---
 
@@ -25,33 +27,14 @@ Expect zero to a few Blueprints per Feat Spec. Most features don't need any.
 
 ---
 
-## Required fields
-
-Every Architecture Blueprint entry must include these bold-labeled fields:
-
-- `**Node type:** Architecture Blueprint`
-- `**Title:** <short title>`
-- `**Purpose:** <1–2 sentences>`
-- `**Diagram:** <a Mermaid block OR a prose description if no diagram is needed>`
-- `**Discussion:** <prose explaining the diagram's components, flows, and boundaries>`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-Optional:
-
-- `**Related Decisions:** <wiki links to Decision nodes that shaped this Blueprint>`
-- `**Related Integrations:** <wiki links>`
-- `**Operational considerations:** <bullet list of deployment, monitoring, or scaling notes>`
-
----
-
-## Diagram
+## Diagram conventions
 
 Mermaid is permitted here and only here. Keep diagrams focused — a single Blueprint should convey one idea:
 
-- Sequence diagram for event-flow choreography.
-- Component diagram for module topology.
-- State diagram for complex state machines spanning multiple entities (rare; State nodes cover single-entity cases).
-- Flowchart for high-level decision topology.
+- **Sequence diagram** — for event-flow choreography.
+- **Component diagram** — for module topology.
+- **State diagram** — for complex state machines spanning multiple entities (rare; State nodes cover single-entity cases).
+- **Flowchart** — for high-level decision topology.
 
 **Mermaid block format:**
 

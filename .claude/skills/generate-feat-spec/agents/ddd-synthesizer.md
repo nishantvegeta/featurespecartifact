@@ -14,11 +14,49 @@ Opus (preferred) or Sonnet. High-quality reasoning step that produces the bulk o
 
 None. Pure synthesis.
 
-## Parallel dispatch
+---
+
+## Reference Dispatch
+
+Every node type has an authoritative reference file containing **template, worked examples, and anti-patterns**. This contract lists **required fields, validation rules, and enforcement**; the reference files carry **template-level guidance**.
+
+**When the field list in this contract conflicts with a reference, this contract wins** (required fields, byte-length floors, enforcement rules). References add template structure, examples, and anti-pattern guidance.
+
+### Per-node-type references
+
+| Node type | Reference file |
+|---|---|
+| Actor | `references/actors.md` |
+| Entity | `references/entities.md` |
+| Value Object | `references/value-objects.md` |
+| Command | `references/commands.md` |
+| Query | `references/queries.md` |
+| Flow | `references/flows.md` |
+| State | `references/states.md` |
+| Decision | `references/decisions.md` |
+| Integration | `references/integrations.md` |
+| Architecture Blueprint | `references/architecture-blueprints.md` |
+| Conflict | `references/conflicts.md` |
+
+### Cross-cutting references
+
+| Reference | Consulted for |
+|---|---|
+| `references/abp-base-classes.md` | Base class assignment decision tree (every Entity) |
+| `references/abp-built-in-entities.md` | Pre-synthesis duplication check (every Entity); routing of built-in matches to Actor / Integration / relationship |
+| `references/integrations.md` "When to synthesize a Domain Event" | Domain-event gating policy (every Command, every cross-module side effect) |
+
+All reference content is delivered inline via the `reference_files` field of the input envelope. Workers do not read references from disk.
+
+---
+
+## Parallel Dispatch
 
 **Dispatch rule:** if Phase 5 produced ≥2 modules, dispatch one `ddd-synthesizer` per module in parallel. If 1 module, run as a single pass.
 
-**Why parallel-safe:** aggregate boundaries don't cross module boundaries. Within-module naming consistency is preserved by each worker's single pass. Cross-module references are rare and resolve at assembly time via the combined naming index. Collisions across modules are caught in the rejoin step and trigger targeted repair.
+**Why parallel-safe:** aggregate boundaries don't cross module boundaries. Within-module naming consistency is preserved by each worker's single pass. Cross-module references resolve at assembly time via the combined naming index. Collisions across modules are caught in the rejoin step and trigger targeted repair.
+
+---
 
 ## Input
 
@@ -94,7 +132,7 @@ None. Pure synthesis.
 }
 ```
 
-### Repair mode input (additional fields)
+### Repair mode (additional fields)
 
 ```
 {
@@ -106,23 +144,24 @@ None. Pure synthesis.
 }
 ```
 
+---
+
 ## Responsibility
 
-1. **Pre-synthesis ABP built-in check.** For every clause mapped to `Entity`, scan `abp_built_in_entities` to see if it duplicates a built-in. If yes: route to Actor / Integration / relationship — do NOT synthesize an Entity.
-2. **Base class assignment** per `abp_base_classes` decision tree.
+1. **Pre-synthesis ABP built-in check.** For every clause mapped to `Entity`, scan `abp_built_in_entities` (per `references/abp-built-in-entities.md` decision flow) to see if it duplicates a built-in. If yes: route to Actor / Integration / relationship — do NOT synthesize an Entity.
+2. **Base class assignment** per `references/abp-base-classes.md` decision tree.
 3. **Interface assignment** per tenancy + `ISoftDelete` + `IHasConcurrencyStamp` rules.
 4. **Single-pass synthesis within the worker's scope** (full module, or full milestone if single-pass).
-5. **Build naming index** used for cross-reference resolution within the worker.
-6. **Build Permissions Map** (partial — one row per Actor + Command/Query within this module). Pattern uses `claude_md_conventions.permissions_class`:
-   - Default pattern: `<PermissionsClass>.<AggregateNamePlural>.<Verb>` → `TradeFinancePermissions.UserRequests.Create`.
-   - When CLAUDE.md declares a nested-class convention (inferred from the `permissions_class` name), the rendered form in the Permissions Map uses `TradeFinancePermissions.UserRequests.Create` — the Permissions Map table's `Permission string` column always shows this fully-qualified form.
+5. **Build naming index** for cross-reference resolution within the worker.
+6. **Build Permissions Map** (partial — one row per Actor + Command/Query within this module). Pattern uses `claude_md_conventions.permissions_class`. Default form: `<PermissionsClass>.<AggregateNamePlural>.<Verb>` → `TradeFinancePermissions.UserRequests.Create`. The Permissions Map's `Permission string` column always shows this fully-qualified form.
 7. **Build ABP Artifact Map** (partial — layers populated with this module's artifacts):
-   - **Domain** layer entries use namespace `<project_root_namespace>.<Module>`.
-   - **Application** layer entries include a Validators sub-list (one `<CommandName>InputValidator` per Command, per `validation_library`).
-   - **Application** layer also includes a Mappers sub-list (Mapperly mappers per `object_mapping_library`).
-   - **Contracts** layer DTOs in `<project_root_namespace>.<Module>.Application.Contracts` or per `claude_md_conventions.module_project_layout.contracts` path.
-   - **Infrastructure / EF Core** tables named `<db_table_prefix><EntityName>` (e.g., `AppUserRequests`).
-   - **Permissions** section uses `<permissions_class>`.
+   - **Domain** layer: namespace `<project_root_namespace>.<Module>`.
+   - **Application** layer: includes a Validators sub-list (one `<CommandName>InputValidator` per Command, per `validation_library`) and a Mappers sub-list (Mapperly mappers per `object_mapping_library`).
+   - **Contracts** layer: DTOs in `<project_root_namespace>.<Module>.Application.Contracts` or per `module_project_layout.contracts`.
+   - **Infrastructure / EF Core**: tables named `<db_table_prefix><EntityName>` (e.g., `AppUserRequests`).
+   - **Permissions** section: uses `<permissions_class>`.
+
+---
 
 ## Per-node-type output requirements
 
@@ -137,8 +176,13 @@ Example:
 - [FRS #11 — Success Outcomes](http://localhost:8080/root/trade-finance/-/issues/11#4-success-outcomes)
 ```
 
-### Entity entry (required fields)
+The required field lists below are **minimum contracts**. Each section names its authoritative reference for full template, worked examples, and anti-patterns.
 
+### Entity entry
+
+**Reference:** `references/entities.md` · **Cross-cutting:** `references/abp-built-in-entities.md` (duplication check), `references/abp-base-classes.md` (base class)
+
+Required fields:
 - `**Node type:** Entity`
 - `**Name:** <PascalCase>`
 - `**Module:** <module>` / `**Sub-module:** <sub-module>`
@@ -162,6 +206,9 @@ Example:
 
 ### Command entry
 
+**Reference:** `references/commands.md` · **Cross-cutting:** `references/integrations.md` "When to synthesize a Domain Event"
+
+Required fields:
 - `**Node type:** Command`
 - `**Name:** <verb-prefixed PascalCase>`
 - `**Actor:** <wiki link>`
@@ -182,6 +229,9 @@ Example:
 
 ### Query entry
 
+**Reference:** `references/queries.md`
+
+Required fields:
 - `**Node type:** Query`
 - `**Name:** <Get/List-prefixed PascalCase>`
 - `**Actor:** <wiki link>`
@@ -203,6 +253,9 @@ Example:
 
 ### Actor entry
 
+**Reference:** `references/actors.md`
+
+Required fields:
 - `**Node type:** Actor`
 - `**Name:** <PascalCase or "System: BackgroundJob: <JobName>">`
 - `**Kind:** Human | External system | System: BackgroundJob | System: ScheduledTask | System: EventHandler`
@@ -214,6 +267,9 @@ Example:
 
 ### Value Object entry
 
+**Reference:** `references/value-objects.md`
+
+Required fields:
 - `**Node type:** Value Object`
 - `**Name:** <PascalCase>`
 - `**Module:** <module>`
@@ -227,6 +283,9 @@ Example:
 
 ### Flow entry
 
+**Reference:** `references/flows.md`
+
+Required fields:
 - `**Node type:** Flow`
 - `**Name:** <PascalCase>`
 - `**Actor(s):** wiki links`
@@ -239,6 +298,9 @@ Example:
 
 ### State entry
 
+**Reference:** `references/states.md`
+
+Required fields:
 - `**Node type:** State`
 - `**Entity:** <wiki link>`
 - `**Storage:** enum <EnumName> stored as <serialization strategy from CLAUDE.md>`
@@ -250,6 +312,9 @@ Example:
 
 ### Decision entry
 
+**Reference:** `references/decisions.md`
+
+Required fields:
 - `**Node type:** Decision`
 - `**Title:** <sentence case>`
 - `**Status:** Accepted | Proposed | Deprecated | Superseded by <link>`
@@ -262,6 +327,9 @@ Example:
 
 ### Integration entry
 
+**Reference:** `references/integrations.md`
+
+Required fields:
 - `**Node type:** Integration`
 - `**Name:** <PascalCase>`
 - `**External party:** <name>`
@@ -275,6 +343,9 @@ Example:
 
 ### Architecture Blueprint entry
 
+**Reference:** `references/architecture-blueprints.md`
+
+Required fields:
 - `**Node type:** Architecture Blueprint`
 - `**Title:** <short title>`
 - `**Purpose:** <1-2 sentences>`
@@ -284,7 +355,11 @@ Example:
 
 ### Conflict entry
 
-Follow `references/conflicts.md` verbatim, with the `**Source:**` field using the same deep-link format.
+**Reference:** `references/conflicts.md` (follow verbatim)
+
+The `**Source:**` field uses the same deep-link format as all other node types.
+
+---
 
 ## ABP Artifact Map structure (per worker, partial)
 
@@ -328,6 +403,8 @@ All namespaces use `claude_md_conventions.project_root_namespace`. All table nam
 - List sorting/paging tests per Query (verifies `explicit-switch` coverage).
 - Domain rule tests per invariant.
 - State transition tests (legal + illegal).
+
+---
 
 ## Returns
 
@@ -376,13 +453,18 @@ All namespaces use `claude_md_conventions.project_root_namespace`. All table nam
 }
 ```
 
+---
+
 ## Enforcement
 
 - **No code fences** anywhere except Mermaid in Architecture Blueprints.
 - **No `public class`** or colon-inheritance syntax.
-- **No ABP built-in duplication.**
+- **No ABP built-in duplication.** Run the three-step decision flow in `references/abp-built-in-entities.md` before emitting any Entity. If the concept matches a built-in (step 1) or is ambiguous (step 3): do not emit an Entity — route to Actor / Integration / relationship, or emit a `builtin_collision` Conflict. Entity names whose root token (case-insensitive) matches a built-in are forbidden — `User`, `Tenant`, `Role`, `Permission`, etc. A companion Entity (`UserProfile`) is allowed only when it holds milestone-specific fields and references the built-in via FK.
+- **`Async` naming ban.** Command and Flow `Name` fields must not contain `async`/`Async` (case-insensitive). If an input clause name includes it, strip the token (`ProcessRegistrationAsync` → `ProcessRegistration`) and record a soft warning in `warnings`.
+- **Conceptual-actor field omission.** For Actor entries with `Kind: Human` or `External system`, do **not** emit `Base class:` or `Inherits from:` fields. These are reserved for System actors (`System: BackgroundJob`, `System: ScheduledTask`, `System: EventHandler`). Rendering `Base class: N/A` on a conceptual actor is a defect.
+- **Domain-event gating (async-only policy).** Synthesize domain events only when clause evidence supports one of: (a) messaging queue consumption/production, (b) cross-module async side effect (e.g., welcome email, notification pipeline), (c) external system integration. Standard CRUD commands do NOT raise domain events. Events whose consumer is tagged `Optional / future integration hook` move to a **Deferred Events** sub-section in the originating node entry — not the main `Domain events raised` table. See `references/integrations.md` "When to synthesize a Domain Event".
 - **No opaque clause IDs.** `**Source:**` uses deep-link format only.
-- **Wiki links use `wiki_url` base with no `.md` extension, no `wiki_local_path` prefix.** Example: `[UserRequest](<wiki_url>/entities/UserRequest)`.
+- **Wiki links** use `wiki_url` base with no `.md` extension and no `wiki_local_path` prefix. Example: `[UserRequest](<wiki_url>/entities/UserRequest)`.
 - **Single consistent naming within the worker.** `naming_index` is built during synthesis.
 - **CLAUDE.md convention adherence:**
   - `validation_library: FluentValidation` → every Command has `**Validation:** <CommandName>InputValidator (FluentValidation)`. No `[Required]`, `[StringLength]`, or `IValidatableObject` references unless a Decision explains the deviation.
@@ -393,23 +475,20 @@ All namespaces use `claude_md_conventions.project_root_namespace`. All table nam
   - `enum_serialization: camelCase strings, global` → every State entry's Storage field references the global `JsonStringEnumConverter`.
   - `api_routing_conventions` declared → every Command/Query has `**Audience:**` and `**HTTP route:**` fields with the correct prefix.
 - **Minimum byte-length floors:**
-  - Entity: ≥ 600 bytes.
-  - Command: ≥ 400 bytes.
-  - Query: ≥ 400 bytes.
-  - Flow: ≥ 300 bytes.
-  - State: ≥ 200 bytes.
-  - Value Object: ≥ 250 bytes.
-  - Decision / Integration / Architecture Blueprint: ≥ 300 bytes.
-  - Actor: ≥ 150 bytes.
+  - Entity ≥ 600 · Command ≥ 400 · Query ≥ 400 · Flow ≥ 300 · State ≥ 200 · Value Object ≥ 250 · Decision / Integration / Architecture Blueprint ≥ 300 · Actor ≥ 150.
 - **DTO audit level mirrors entity audit level.**
 - **Every Query's Input DTO base** is `PagedAndSortedResultRequestDto` (or explicit deviation noted).
 - **Every Query's Output wrapper** is `PagedResultDto<TDto>` or `ListResultDto<TDto>` (deviation noted).
 - **Permissions Map partial** covers every `Actor + Command` and `Actor + Query` pair in the worker's scope.
-- **Audience tagging** consistent: Customer → Public; named internal roles → Private. `IdentityUser` with no role context defaults based on the most-invoking role.
+- **Audience tagging** consistent: Customer → Public; named internal roles → Private. `IdentityUser` with no role context defaults to the most-invoking role.
+
+---
 
 ## Targeted repair mode
 
 Receive `repair_targets` + `previous_envelope`. Only regenerate the listed entries. Preserve all other entries verbatim. Return the same envelope shape with updated entries slotted in.
+
+---
 
 ## Main agent uses this output to
 

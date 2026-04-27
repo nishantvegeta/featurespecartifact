@@ -1,8 +1,10 @@
 # ABP Built-in Entities Catalog
 
-This file lists the entities, concepts, and tables ABP Framework provides out of the box. The `ddd-synthesizer` sub-agent consults this catalog **before** creating any Entity node. If an FRS clause implies a concept in this catalog, the built-in is referenced — never re-synthesized as a new Entity node.
+This file lists the entities, concepts, and tables ABP Framework provides out of the box. The `ddd-synthesizer` sub-agent **must run the three-step decision flow (see below) before emitting every Entity entry, without exception**. If an FRS clause implies a concept in this catalog, the built-in is referenced — never re-synthesized as a new Entity node.
 
 > **Enforcement rule:** a synthesized Entity whose name or responsibility duplicates a built-in below is a validation defect. The `feat-spec-validator` blocks the preview if any Entity name matches a built-in's concept.
+>
+> **Mandatory pre-synthesis flow:** before emitting any Entity, `ddd-synthesizer` must answer the three questions in the Decision Flow below. If step 1 matches a built-in, do not emit the Entity. If step 3 fires (ambiguous), emit a `builtin_collision` Conflict instead of the Entity — never silently emit a duplicate. The Conflict must reference the specific built-in catalog entry and include a `resolution_question` asking whether the concept is truly distinct from the built-in.
 
 ---
 
@@ -116,7 +118,7 @@ This file lists the entities, concepts, and tables ABP Framework provides out of
 
 ## Decision Flow
 
-When `ddd-synthesizer` considers creating an Entity node from a clause, it answers:
+**This flow is mandatory before emitting every Entity entry.** `ddd-synthesizer` must answer all three questions in order.
 
 1. **Does the concept appear in this catalog?**
    - Yes → do not synthesize. Reference the built-in via Actor, Integration, or as a relationship target on a milestone-specific Entity.
@@ -125,7 +127,8 @@ When `ddd-synthesizer` considers creating an Entity node from a clause, it answe
    - Yes → synthesize a companion Entity (e.g., `UserProfile`, `TenantConfiguration`) with an ID field referencing the built-in.
    - No → synthesize as a regular milestone Entity.
 3. **Is the concept ambiguous — could be a built-in or a milestone Entity?**
-   - Yes → create a Conflict with `conflict_type: builtin_ambiguity` and flag for user resolution.
+   - Yes → **do not emit the Entity**. Instead, emit a `builtin_collision` Conflict with `conflict_type: builtin_ambiguity`, referencing the specific catalog entry, and a `resolution_question` asking whether this concept is truly distinct from the built-in. Surface this Conflict in Open Blockers. Never silently emit a potentially-duplicate Entity.
+   - No → synthesize as a regular milestone Entity (step 2 No path).
 
 ---
 

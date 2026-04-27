@@ -84,6 +84,13 @@ Run every check below. For each failure, emit a defect with `severity` and a spe
 | Every Query has `**Default sort:**`, `**Filters supported:**`, `**Tenant/entity scoping:**` | high |
 | DTO auditing level mirrors entity auditing level | high |
 | No bare `System` actor — `System:` actors must name a job/task/handler | high |
+| No `async`/`Async` token (case-insensitive) in any Command or Flow `Name` | high |
+| No conceptual Actor (Kind `Human` or `External system`) carries a `Base class:` or `Inherits from:` field | medium |
+| No Entity name root-token-matches an ABP built-in concept (User, Tenant, Role, Permission, Feature, Setting, AuditLog, BackgroundJob, Blob, Language, Setting) — companion Entities like `UserProfile` are allowed | critical |
+| No Command raises a Domain Event unless consumer is (a) a message queue, (b) a cross-module async side effect, or (c) an external integration — CRUD commands must not emit events. Events tagged `Optional / future integration hook` belong in a `Deferred Events` sub-section, not `Domain events raised` | high |
+| Every Value Object has ≥2 attributes OR carries non-trivial `Invariants:` / custom `Equality rule:` — single-primitive wrappers must be demoted to Entity field or DTO property | medium |
+| Every DDD node **file** on disk opens with a YAML frontmatter block containing `id`, `name`, `type`, `version`, `created`, `last_modified` AND ends with a `## Change History` section with at least one entry. This check applies to files written in Phase 11, not to inline entries in the Feat Spec body. | high |
+| If `open_questions_outstanding` is non-empty and user chose `continue-anyway` in Phase 2.5, the assembled Feat Spec's Open Blockers section lists each unresolved question with severity `high` and its FRS deep link | high |
 
 ### Project convention compliance checks
 

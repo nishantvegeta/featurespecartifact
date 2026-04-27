@@ -2,7 +2,7 @@
 
 An Actor is a human role or a named system trigger that initiates or receives behavior in this feature. Actors are consumed by the Permissions Map and cross-referenced by every Command, Query, and Flow.
 
-> **Enforcement:** A bare `System` actor is not permitted. `System:` actors must name a specific background job, scheduled task, or distributed event handler.
+> **Field contract:** Required fields, validation rules, and enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create an Actor, the kinds, ABP identity binding semantics, the worked example, and common defects.
 
 ---
 
@@ -19,6 +19,8 @@ Do **not** create:
 - A bare `System` actor for ordinary system-initiated domain logic — that belongs inside the triggering Command or Flow.
 - Duplicate actors for the same business role under different wordings (e.g., "admin" and "administrator" are one actor).
 
+A bare `System` actor is not permitted; `System:` actors must name a specific background job, scheduled task, or distributed event handler.
+
 ---
 
 ## Actor kinds
@@ -31,36 +33,17 @@ Do **not** create:
 | System: ScheduledTask | `System: ScheduledTask: DailyReportGenerator` | An ABP-hosted scheduler |
 | System: EventHandler | `System: EventHandler: PaymentReceivedHandler` | A distributed event subscriber |
 
----
-
-## Required fields
-
-Every Actor entry must include these bold-labeled fields:
-
-- `**Node type:** Actor`
-- `**Name:** <PascalCase or "System: <Kind>: <JobName>">`
-- `**Kind:** <from the table above>`
-- `**ABP identity binding:** <IdentityUser + role <RoleName>> or <JobClassName> or <external system identifier>`
-- `**Goals:** <bullet list, one short goal per line, drawn from clause content>`
-- `**Commands initiated:** <bullet list of wiki links to Command pages, or "none">`
-- `**Queries initiated:** <bullet list of wiki links to Query pages, or "none">`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-Optional fields (include only if clauses support them):
-
-- `**Responsibilities:** <bullet list of broader responsibilities beyond initiated commands/queries>`
-- `**Notifications received:** <bullet list of domain/integration events this actor is notified about>`
-- `**Constraints:** <bullet list — e.g., "can only act within their own tenant scope">`
+**Conceptual Actors** (Human / External system) do **not** carry `Base class:` or `Inherits from:` fields — those fields are reserved for System Actors. **System Actors** (BackgroundJob / ScheduledTask / EventHandler) carry the implementation class name in `ABP identity binding`.
 
 ---
 
 ## ABP identity binding
 
-For human actors, bind to ABP Identity using the form `IdentityUser + role <RoleName>`. The `<RoleName>` corresponds to an `IdentityRole` to be seeded via `IDataSeedContributor` or configured in `{Module}PermissionDefinitionProvider` role mapping.
+For **human actors**: bind to ABP Identity using `IdentityUser + role <RoleName>`. The role corresponds to an `IdentityRole` seeded via `IDataSeedContributor` or configured in `{Module}PermissionDefinitionProvider` role mapping.
 
-For system actors, bind to a concrete C# class name: the background job class (`EmailReminderJob`), the scheduled task class, or the event handler class. The exact class is declared in the Integration entry or in the ABP Artifact Map's Application section.
+For **system actors**: bind to a concrete C# class name — the background job class (`EmailReminderJob`), the scheduled task class, or the event handler class. The exact class is declared in the Integration entry or in the ABP Artifact Map's Application section.
 
-For external systems, bind to a descriptive identifier that matches how the system authenticates (e.g., `ApiKey: partner-credit-bureau-v1`, `OAuth2Client: stripe-webhook`).
+For **external systems**: bind to a descriptive identifier matching the system's authentication mechanism — e.g., `ApiKey: partner-credit-bureau-v1`, `OAuth2Client: stripe-webhook`.
 
 ---
 
@@ -84,9 +67,9 @@ Examples:
 
 ## Commands and Queries initiated
 
-Link to the Command and Query wiki pages using `[<Name>](<wiki_url>/commands/<Name>)` and `[<Name>](<wiki_url>/queries/<Name>)` — full URL form, no `.md`, no `wiki_local_path` prefix, human-readable label. The Permissions Map is generated from these relationships — every link here creates a row in the Permissions Map.
+Link to Command and Query wiki pages using `[<n>](<wiki_url>/commands/<n>)` and `[<n>](<wiki_url>/queries/<n>)` — full URL form, no `.md`, no `wiki_local_path` prefix, human-readable label. The Permissions Map is generated from these relationships — every link here creates a row in the Permissions Map.
 
-If an actor has no initiated Commands or Queries (pure observer or notification target), write `**Commands initiated:** none` and `**Queries initiated:** none`, then record the observation relationship in `**Notifications received:**`.
+If an actor has no initiated Commands or Queries (pure observer / notification target), write `**Commands initiated:** none` and `**Queries initiated:** none`, then record the observation relationship in `**Notifications received:**`.
 
 ---
 
@@ -125,7 +108,8 @@ If an actor has no initiated Commands or Queries (pure observer or notification 
 | Defect | Fix |
 |---|---|
 | Bare `System` actor with no job name | Rename to `System: BackgroundJob: <JobName>` or remove and fold behavior into the triggering Command |
-| Actor with zero initiated Commands and Queries | Either move observer behavior to `**Notifications received:**`, or remove the actor entirely |
+| Actor with zero initiated Commands and Queries | Move observer behavior to `**Notifications received:**`, or remove the actor entirely |
 | Duplicate actors under different names | Merge; keep the most FRS-faithful name |
-| Actor whose goals are implementation details (e.g., "calls the API") | Rewrite as business goal; keep implementation out of Actor entries |
+| Actor goals are implementation details (e.g., "calls the API") | Rewrite as business goal; keep implementation out of Actor entries |
 | Human actor without `IdentityUser + role` binding | Add the binding; roles are required for the Permissions Map |
+| Conceptual Actor (Human or External system) with `Base class:` / `Inherits from:` field | Remove the field — these are reserved for System Actors only |

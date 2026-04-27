@@ -24,8 +24,14 @@ File system write tools.
 {
   "batch_id": "<string>",
   "wiki_local_path": "<disk path root>",
+  "feat_spec_slug": "<kebab-slug of the milestone feat spec>",
   "files": [
-    {"filepath": "<relative path under wiki_local_path>", "content": "<full Markdown>"}
+    {
+      "filepath": "<relative path under wiki_local_path>",
+      "content": "<full Markdown>",
+      "node_name": "<PascalCase node name>",
+      "node_type": "<actor|entity|command|query|flow|state|decision|integration|architecture-blueprint|conflict|value-object>"
+    }
   ]
 }
 ```
@@ -35,8 +41,14 @@ File system write tools.
 ```
 {
   "wiki_local_path": "<disk path root>",
+  "feat_spec_slug": "<kebab-slug of the milestone feat spec>",
   "files": [
-    {"filepath": "<relative path>", "content": "<full Markdown>"}
+    {
+      "filepath": "<relative path>",
+      "content": "<full Markdown>",
+      "node_name": "<PascalCase node name>",
+      "node_type": "<actor|entity|...>"
+    }
   ]
 }
 ```
@@ -54,7 +66,34 @@ File system write tools.
 
 1. For each file in the batch:
    - Ensure the parent directory exists (mkdir -p).
-   - Write the full content verbatim.
+   - **Prepend YAML frontmatter** to every DDD node file (i.e., any file under `actors/`, `entities/`, `value-objects/`, `commands/`, `queries/`, `flows/`, `states/`, `decisions/`, `integrations/`, `architecture-blueprints/`, `conflicts/`). Derive the fields as follows:
+     - `id`: kebab-case of the node name (e.g., `reviewer`, `user-request`, `create-registration-request`).
+     - `name`: PascalCase node name as provided in the content (e.g., `Reviewer`, `UserRequest`).
+     - `type`: the node type in lowercase (e.g., `actor`, `entity`, `command`).
+     - `version`: `1.0.0`
+     - `created`: today's date in ISO 8601 format (`YYYY-MM-DD`).
+     - `last_modified`: same as `created` on first write.
+
+     The frontmatter block is inserted **before** the first line of the content:
+     ```
+     ---
+     id: <id>
+     name: <name>
+     type: <type>
+     version: 1.0.0
+     created: <YYYY-MM-DD>
+     last_modified: <YYYY-MM-DD>
+     ---
+     ```
+   - **Append a `## Change History` section** at the very end of every DDD node file, after all other content:
+     ```
+     ## Change History
+
+     - v1.0.0 (<YYYY-MM-DD>): Created from feat spec <feat-spec-slug>.
+     ```
+     The `<feat-spec-slug>` is derived from the `batch_id` or passed via the file descriptor's `feat_spec_slug` field (see input schema).
+   - The Feat Spec file (`feat-specs/<slug>/feat-spec.md`) does **not** receive frontmatter or a Change History section.
+   - Write the augmented content to disk.
    - Record `{filepath, bytes_written, status}` in the worker manifest.
 2. On any write failure, record `status: failed` with `error_message`; continue remaining files in the batch.
 3. Return the worker manifest.

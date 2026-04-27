@@ -2,81 +2,57 @@
 
 A Value Object is an immutable structure identified by the combination of its attribute values — not by a distinct ID. Two Value Objects with identical attribute values are considered equal.
 
-> **Enforcement:** Value Objects have no `Id` field, no base class from ABP's entity hierarchy, no lifecycle, and no domain events. If a proposed Value Object has any of these, it should be an Entity instead.
+> **Field contract:** Required fields and enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create a Value Object, the criteria framework, equality semantics, the worked example, and common defects.
+>
+> Value Objects have no `Id` field, no audit fields, no lifecycle, and no domain events. If a proposed Value Object has any of these, it should be an Entity instead.
 
 ---
 
 ## When to create a Value Object
 
-Create a Value Object when a clause describes a concept that:
+Create a Value Object only when the clause describes a concept meeting **at least one** of these criteria:
 
-- Has no persistent identity independent of its values, AND
-- Is fully defined by its attributes (change any attribute → it's a different value), AND
-- Has domain meaning beyond a primitive (formatting rules, validation, equality semantics), AND
-- May appear as a compound field on an Entity or as an input/output DTO component.
+- **(a) Multi-attribute composition** — the concept groups two or more attributes that only make sense together (e.g., amount + currency, street + city + postal code). A single-primitive concept does not qualify.
+- **(b) Non-trivial construction-time invariants** — explicit domain rules must be enforced at creation (e.g., a postal code must match a country-specific regex; a date range must have start ≤ end).
+- **(c) Custom or case-insensitive equality semantics** — equality is not simple value equality on all fields (e.g., email addresses are equal regardless of case).
+- **(d) Encapsulation of a canonical domain concept** — the concept has a well-understood meaning that benefits from type safety beyond a raw primitive (e.g., `Money`, `DateRange`, `GeoCoordinate`).
+
+**Single-primitive wrappers do not qualify.** A field like `RequesterRemark` (a string), `RequestedRole` (a string or enum), or `Amount` (a decimal) without invariants must be modeled as an Entity field or DTO property — not as a Value Object. Demote immediately.
 
 Do **not** create a Value Object for:
 
-- A single primitive (use the primitive type directly unless validation demands a wrapper).
+- A single primitive with no validation, no custom equality, and no canonical domain concept status — demote to Entity field or DTO property.
 - A DTO used only for input/output of a single Command — the DTO table inside the Command entry is sufficient.
 - A structure with a lifecycle — that's an Entity.
-- Something already provided by ABP (e.g., money amounts — check `Volo.Abp.MultiLingualObject` or similar before synthesizing).
+- Something already provided by ABP.
 
 ---
 
-## ABP base class
+## Base class
 
-Value Objects in ABP typically inherit from `ValueObject` (`Volo.Abp.Domain.Values.ValueObject`). This provides structural equality based on the components returned by `GetAtomicValues()`.
+Value Objects in ABP typically inherit from `ValueObject` (`Volo.Abp.Domain.Values.ValueObject`), which provides structural equality based on the components returned by `GetAtomicValues()`.
 
-For simple Value Objects with no special equality logic, a plain record type can be used. The choice should be noted in the entry as `**Base class:** ValueObject` or `**Base class:** C# record`.
-
----
-
-## Required fields
-
-Every Value Object entry must include these bold-labeled fields:
-
-- `**Node type:** Value Object`
-- `**Name:** <PascalCase>`
-- `**Module:** <module>`
-- `**Purpose:** <1 sentence, business-level>`
-- `**Base class:** ValueObject | C# record`
-- `**Attributes table:** <columns: Name, Type, Required, Validation, Notes>`
-- `**Equality rule:** <by all fields | by subset <fields> | custom>`
-- `**Invariants:** <bullet list — validation rules enforced in the constructor>`
-- `**Used by:** <bullet list of wiki links to Entities or DTOs that include this VO>`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-Optional:
-
-- `**Construction rules:** <bullet list — e.g., "trim and lowercase email", "validate format before accepting">`
-- `**Serialization notes:** <e.g., "stored as single string via owned-type mapping in EF Core">`
+For simple Value Objects with no special equality logic, a plain record type can be used. Note the choice as `**Base class:** ValueObject` or `**Base class:** C# record`.
 
 ---
 
-## Attributes table
+## Attributes table conventions
 
-Columns:
-
-| Name | Type | Required | Validation | Notes |
-|---|---|---|---|---|
-| `<FieldName>` | `<C# type>` | yes/no | `<rule>` | Short note |
-
-Guidelines:
+Columns: `Name | Type | Required | Validation | Notes`.
 
 - Field names are **PascalCase**.
-- Every attribute is either set at construction or never set (immutable).
-- `Validation` column lists constructor-level validation (length, format, range). Any validation that depends on external state belongs on the consuming Entity, not here.
+- Every attribute is set at construction or never set (immutable).
+- `Validation` lists constructor-level validation (length, format, range). Validation that depends on external state belongs on the consuming Entity, not here.
 - No `Id` field, no audit fields, no `TenantId`.
 
 ---
 
 ## Equality rule
 
-State the equality semantics explicitly:
+State equality semantics explicitly:
 
 - **By all fields** — two Value Objects are equal iff every attribute matches. Default choice.
-- **By subset <fields>** — only the listed fields participate in equality (other fields are derived or cosmetic). Rare; requires clause justification.
+- **By subset \<fields\>** — only the listed fields participate in equality. Rare; requires clause justification.
 - **Custom** — special equality logic (e.g., case-insensitive string comparison). Describe the rule.
 
 ---
@@ -133,5 +109,6 @@ State the equality semantics explicitly:
 | Value Object with `IMultiTenant` | Remove; tenancy belongs to the owning Entity |
 | Value Object that fires domain events | Move event logic to the owning Entity |
 | Mutable setters | Replace with constructor-only assignment and document in `**Construction rules:**` |
-| No validation rules on fields with clear constraints | Extract constraints from FRS and populate the Validation column and `**Invariants:**` |
-| Value Object that's only used as a Command input | Collapse into the Command's Input DTO table and remove the Value Object entry |
+| No validation rules on fields with clear constraints | Extract constraints from FRS; populate Validation column and `**Invariants:**` |
+| Value Object that's only used as a Command input | Collapse into the Command's Input DTO table; remove the Value Object entry |
+| Single-primitive field modeled as Value Object (e.g., `RequesterRemark`, `RequestedRole`, `Amount` without currency) | Demote to Entity field or DTO property; no VO entry needed unless criteria (a–d) are met |

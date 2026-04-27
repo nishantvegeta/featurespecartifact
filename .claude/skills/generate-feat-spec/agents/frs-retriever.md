@@ -105,8 +105,15 @@ For <3 issues, sequential is fine.
    - `"4.1 Primary flow"` → anchor `41-primary-flow`.
 
    If the description has no headings, emit a warning: `"issue #<iid> has no section headings; source links will use issue-level anchor only"`.
-8. For non-halted issues, write the full body to `<scratch_dir>/frs-<iid>.md`.
-9. For halted issues, do not write the body.
+8. **Open Questions capture.** Scan the description for any heading whose text (case-insensitive, with any leading numeric prefix and punctuation stripped) matches `open questions`. Matches include `## Open Questions`, `## 7. Open Questions`, `### Open Questions`, etc. For each match:
+   - Record the heading's full URL using the same slug rule as step 7.
+   - Collect every Markdown list item (`-`, `*`, `1.`) that appears beneath the heading until the next heading of equal or higher level. Preserve item text verbatim.
+   - Skip items that are struck through (`~~...~~`) or explicitly marked with `[resolved]` / `[closed]` / `[answered]` prefix — treat them as resolved and exclude.
+   - If the Open Questions section exists but has no unresolved items, emit `open_questions: []` for that issue.
+
+   If multiple Open Questions sections exist in the same issue, merge all unresolved items into a single list and record the first heading's URL as `section_url`.
+9. For non-halted issues, write the full body to `<scratch_dir>/frs-<iid>.md`.
+10. For halted issues, do not write the body.
 
 ## Returns
 
@@ -154,12 +161,20 @@ For <3 issues, sequential is fine.
           "body_handle": "<path>",
           "section_catalog": [ ... ]
         }
-      ]
+      ],
+      "open_questions": {
+        "section_url": "http://localhost:8080/root/trade-finance/-/issues/11#7-open-questions" or null,
+        "items": [
+          { "text": "Should duplicate emails be allowed across tenants?" },
+          { "text": "What is the SLA for the reminder job?" }
+        ]
+      }
     }
   ],
   "warnings": [
     "issue #NN has no section headings",
-    "issue #NN has duplicate heading 'Actors'; anchors disambiguated as 3-actors, 3-actors-1"
+    "issue #NN has duplicate heading 'Actors'; anchors disambiguated as 3-actors, 3-actors-1",
+    "issue #NN has N unresolved open questions; see Phase 2.5 gate"
   ]
 }
 ```
@@ -173,6 +188,7 @@ For <3 issues, sequential is fine.
 - Section catalog is always populated; empty array if issue has no headings (with warning).
 - Parallel workers share no state — each worker's output is self-contained.
 - GitLab slug rule must be applied verbatim. Edge cases (ampersands, non-ASCII, unicode) are collapsed per the rule; validator can re-check anchors.
+- `open_questions` is always present on every issue record (even for halted issues). `items: []` when no unresolved questions remain. `section_url: null` when the issue has no Open Questions heading at all.
 
 ## Main agent uses this output to
 
@@ -180,3 +196,4 @@ For <3 issues, sequential is fine.
 - Pass non-halted body handles + section catalogs to `clause-normalizer`.
 - Record halted issues with splits for preview + GitLab coordination issue.
 - Warn users if any FRS issue lacks headings (source links degrade to issue-level).
+- **Phase 2.5 Open-Questions gate:** if any non-halted issue's `open_questions.items` is non-empty, surface them via `AskUserQuestion` before continuing to normalization. See SKILL.md Phase 2.5.

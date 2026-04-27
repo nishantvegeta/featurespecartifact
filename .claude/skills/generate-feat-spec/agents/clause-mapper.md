@@ -103,6 +103,23 @@ The `mapping_rule_table` is passed from SKILL.md's Phase 6 table.
 }
 ```
 
+## Value Object demotion guard
+
+Before finalizing any mapping with `primary_category: ValueObject`, apply this guard:
+
+1. Count the VO's attributes inferred from the clause.
+2. Check whether the clause implies any of: (a) multi-attribute composition, (b) non-trivial construction-time invariants, (c) custom or case-insensitive equality, (d) canonical domain concept (e.g., Money, DateRange).
+3. If the candidate VO has **exactly one attribute of primitive type** AND none of (a)–(d) apply:
+   - **Demote** the mapping:
+     - If the owning concept is an Entity or Aggregate → set `primary_category: entity-field-annotation`.
+     - If the owning concept is a Command or Query input → set `primary_category: dto-property`.
+   - Append a `mapping_note` to the mapping record: `"Single-primitive VO demoted: <field name> → <entity-field-annotation|dto-property> on <owning concept>."`.
+   - Do **not** emit the VO mapping silently. The `ddd-synthesizer` will receive the demoted category and produce an Entity attribute row or DTO field instead.
+
+This guard prevents the synthesizer from generating unnecessary Value Object entries for fields like `RequesterRemark`, `RequestedRole`, `Amount` (without currency), or similar single-primitive wrappers.
+
+---
+
 ## Enforcement
 
 - `stats.unmapped_remaining` MUST be 0. Unmapped clauses must appear in `conflicts` with `conflict_type: no_match`.

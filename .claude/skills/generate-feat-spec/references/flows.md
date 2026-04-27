@@ -2,7 +2,9 @@
 
 A Flow is an ordered, multi-step process that coordinates Commands, Queries, external integrations, and decision branches to fulfill a business goal. Flows describe *how* Actors get work done through the system; they are not implementation details.
 
-> **Enforcement:** Every step in a Flow that calls a Command or Query must reference the exact Command/Query name via wiki link. Flow step text must never contain code or pseudocode.
+> **Field contract:** Required fields and enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create a Flow, numbered-step format, decision-branch format, the worked example, and common defects.
+>
+> Every step that calls a Command or Query must reference the exact Command/Query name via wiki link. Flow step text must never contain code or pseudocode. Flow names follow the same `Async`/`async` ban as Commands — strip the token from the name.
 
 ---
 
@@ -19,43 +21,8 @@ Do **not** create a Flow for:
 
 - A single-Command action — that's captured in the Command's entry.
 - A simple retrieval — that's captured in the Query.
-- UI-internal navigation within the prototype (route to exclusion ledger; route backend expectations about backend contracts to UI-API Integration Points).
+- UI-internal navigation within the prototype (route to exclusion ledger; route backend-contract expectations to UI-API Integration Points).
 - Implementation sequences inside a single method.
-
----
-
-## Required fields
-
-Every Flow entry must include these bold-labeled fields:
-
-- `**Node type:** Flow`
-- `**Name:** <PascalCase>`
-- `**Actor(s):** <bullet list of wiki links to Actors>`
-- `**Purpose:** <1–2 sentences, business-level>`
-- `**Preconditions:** <bullet list>`
-- `**Numbered steps:** <ordered list; each step names the Command, Query, or Integration via wiki link>`
-- `**Decision branches:** <labeled branches: happy path, error branches, alternate branches>`
-- `**Postconditions:** <bullet list>`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-Optional:
-
-- `**Timing:** <SLAs, timeouts, scheduled triggers>`
-- `**Retries and compensations:** <how failures are handled; references to background jobs or sagas>`
-- `**Observability:** <what gets logged/emitted for monitoring>`
-
----
-
-## Preconditions
-
-What must be true before the Flow can begin. Examples:
-
-- Actor authorization.
-- Prior Flow completed (e.g., "customer has completed registration").
-- External system availability assumptions.
-- Data existence.
-
-One bullet per precondition. Source to a clause when possible.
 
 ---
 
@@ -68,7 +35,7 @@ Each step:
 - References the Command / Query / Integration via wiki link.
 - Describes the outcome in one short phrase.
 
-Step format: `<actor> <action via wiki link> → <outcome>`.
+Format: `<actor> <action via wiki link> → <outcome>`.
 
 Examples:
 
@@ -90,11 +57,9 @@ Label branches explicitly:
 - **Alternate paths** — e.g., "customer does not verify within 48 hours".
 - **Error paths** — e.g., "reviewer rejects the request", "external service unavailable".
 
-For each non-happy branch, describe the trigger, the divergence point, and the terminal state.
+For each non-happy branch: trigger condition, divergence point (which step), and terminal state.
 
-Format:
-
-- **<Branch name>** — trigger: `<condition>`. Divergence: step N. Terminal state: `<state or outcome>`.
+Format: `**<Branch name>** — trigger: <condition>. Divergence: step N. Terminal state: <state or outcome>.`
 
 Examples:
 
@@ -128,7 +93,7 @@ One bullet per postcondition.
 >
 > **Preconditions:**
 > - Customer has a verifiable email address.
-> - At least one reviewer is assigned to the customer's team. — [FRS #123 — Reviewer assignment rules](<gitlab_base_url>/issues/<iid>#<slug>)
+> - At least one reviewer is assigned to the customer's team. — [FRS #123 — Reviewer assignment rules](http://localhost:8080/root/trade-finance/-/issues/123#3-reviewer-assignment-rules)
 >
 > **Numbered steps:**
 >
@@ -175,4 +140,5 @@ One bullet per postcondition.
 | No decision branches when FRS clearly describes error/alternate paths | Extract branches from FRS and label them |
 | No `**Postconditions:**` | Add; describe the terminal state of the happy path |
 | Flow is just one step long | Collapse into the Command entry; delete the Flow |
+| Flow name contains `Async` / `async` | Strip the token; record a soft warning |
 | Mixed actors without clear hand-off | Restructure numbered steps to make hand-off explicit |

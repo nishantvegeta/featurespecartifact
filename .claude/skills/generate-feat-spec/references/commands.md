@@ -1,8 +1,10 @@
 # Reference: Command nodes
 
-A Command is a write-side application use case. It mutates state, has preconditions and postconditions, and may raise domain events. In ABP terms, a Command maps to an application service method that returns either `Task`, `Task<Guid>`, or `Task<<Aggregate>Dto>`.
+A Command is a write-side application use case. It mutates state, has preconditions and postconditions, and may raise domain events. In ABP terms, a Command maps to an application service method that returns `Task`, `Task<Guid>`, or `Task<<Aggregate>Dto>`.
 
-> **Enforcement:** Queries are a separate node type. If the clause describes retrieval with no side effects, use `references/queries.md`. Do not conflate Commands and Queries.
+> **Field contract:** Required fields, conditional fields (Audience, HTTP route), and CLAUDE.md-driven enforcement live in `agents/ddd-synthesizer.md`. This file covers when to create a Command, naming, validation column notation, the worked example, and common defects.
+>
+> Queries are a separate node type. If the clause describes retrieval with no side effects, use `references/queries.md`.
 
 ---
 
@@ -12,7 +14,7 @@ Create a Command when a clause describes:
 
 - A state change on an Entity, OR
 - An action that produces a persistent side effect (emits an event, calls an external system, queues a background job), OR
-- An API endpoint that is POST / PUT / PATCH / DELETE.
+- An API endpoint that is `POST` / `PUT` / `PATCH` / `DELETE`.
 
 Do **not** create a Command for:
 
@@ -32,68 +34,32 @@ Command names are **verb-prefixed PascalCase**:
 - `Delete<Entity>` or `Archive<Entity>` — soft/hard delete.
 - `<Action><Entity>` — domain-specific action: `ApproveUserRequest`, `RejectUserRequest`, `VerifyEmailForUserRequest`.
 
-Avoid bare nouns (`UserRequest`) or procedural names (`HandleRequest`).
+Avoid bare nouns (`UserRequest`) or procedural names (`HandleRequest`). Avoid the `Async`/`async` suffix in the Command Name field — strip it (`ProcessRegistrationAsync` → `ProcessRegistration`).
 
-Input DTO naming convention: `<CommandName>Input` (e.g., `CreateUserRequestInput`, `ApproveUserRequestInput`). The paired FluentValidation validator is `<CommandName>InputValidator`.
-
----
-
-## Required fields
-
-Every Command entry must include these bold-labeled fields:
-
-- `**Node type:** Command`
-- `**Name:** <PascalCase, verb-prefixed>`
-- `**Actor:** <wiki link to Actor>`
-- `**Target aggregate:** <wiki link to Entity>`
-- `**Purpose:** <1–2 sentences, business-level>`
-- `**Input DTO:** <DtoName>` with a fields table (Name, Type, Required, Validation, Notes) — all PascalCase
-- `**Input DTO base:** <from abp-base-classes.md; typically plain or ExtensibleObject>`
-- `**Validation:** <CommandName>InputValidator (<validation_library from CLAUDE.md>)`
-- `**Output DTO:** <DtoName | Guid | void>` with fields table if a DTO
-- `**Authorization:** <PermissionsClass>.<AggregateNamePlural>.<Verb>` — pattern uses CLAUDE.md `permissions_class`
-- `**Preconditions:** <bullet list>`
-- `**Postconditions:** <bullet list>`
-- `**Domain events raised:** <bullet list: EventName + Required/Optional + consumer wiki link>`
-- `**Source:** <bullet list of GitLab section-anchor deep links; see SKILL.md Clause Source Deep-Linking>`
-
-**Required when CLAUDE.md declares Public/Private API split** (`api_routing_conventions`):
-
-- `**Audience:** Public | Private` — inferred from the Actor: customer-facing Actors → Public; internal/backoffice Actors → Private.
-- `**HTTP route:** <public_prefix OR private_prefix><aggregate-slug>/...` — uses the prefix matching Audience.
-
-Optional:
-
-- `**Idempotency:** <idempotency key field and strategy>` *(when FRS calls for it, or UI-API Integration Points requires it)*
-- `**Transactional boundary:** <which aggregates are part of the transaction>`
-- `**Side effects:** <bullet list of non-event side effects: background job queued, external API called>`
+Input DTO naming convention: `<CommandName>Input`. Paired FluentValidation validator: `<CommandName>InputValidator`.
 
 ---
 
-## Input DTO
+## Input DTO conventions
 
-Columns:
-
-| Name | Type | Required | Validation | Notes |
-|---|---|---|---|---|
-| `<FieldName>` | `<C# type>` | yes/no | `<rule summary>` | Short note |
-
-Guidelines:
+Columns: `Name | Type | Required | Validation | Notes`.
 
 - Field names are **PascalCase**.
-- Input DTOs typically inherit from no audit base class (they don't need audit fields — the application service captures audit from the current user).
+- Input DTOs typically inherit from no audit base (the application service captures audit from the current user).
 - If the DTO is extensible, inherit from `ExtensibleObject`.
-- For commands that update an existing aggregate, include an `Id` field and note it as `route-bound` if the endpoint takes the ID in the URL.
+- For commands updating an existing aggregate, include an `Id` field and note it as `route-bound` if the endpoint takes the ID in the URL.
 
-**Validation column notation** (when `validation_library: FluentValidation`):
+### Validation column notation
+
+When CLAUDE.md declares `validation_library: FluentValidation`:
 
 - Use brief rule summaries: `NotEmpty, max 256 chars`, `EmailAddress`, `InclusiveBetween(1, 100)`, `cross-field: EndDate > StartDate (RuleFor)`.
 - Full validation rules live in the paired `<CommandName>InputValidator` class (an implicit companion in the Application project).
-- **Do not use data-annotation notation** (`[Required]`, `[StringLength(256)]`, `[EmailAddress]`) in the table. Data annotations are not used when CLAUDE.md declares FluentValidation — conflating them misleads implementers.
+- **Do not use data-annotation notation** (`[Required]`, `[StringLength(256)]`, `[EmailAddress]`) in the table. Conflating them misleads implementers.
 
-**Validation column notation** (when `validation_library: DataAnnotations`):
+When CLAUDE.md declares `validation_library: DataAnnotations`:
 
-- Use the annotation syntax: `[Required]`, `[StringLength(256)]`, `[EmailAddress]`, `IValidatableObject` for cross-field rules.
+- Use annotation syntax: `[Required]`, `[StringLength(256)]`, `[EmailAddress]`, `IValidatableObject` for cross-field rules.
 
 ---
 
@@ -101,7 +67,7 @@ Guidelines:
 
 - **`Task` (void)** — command succeeds or throws; nothing returned.
 - **`Task<Guid>`** — command creates an aggregate; return its ID.
-- **`Task<<Entity>Dto>`** — command returns the full aggregate state; the DTO's auditing level must match the aggregate's (see `references/abp-base-classes.md`).
+- **`Task<<Entity>Dto>`** — command returns the full aggregate state. The DTO's auditing level must match the aggregate's (see `references/abp-base-classes.md`).
 
 If the output is a DTO, document its fields. Use the DTO tables in `abp-base-classes.md` to pick a base class.
 
@@ -109,61 +75,31 @@ If the output is a DTO, document its fields. Use the DTO tables in `abp-base-cla
 
 ## Preconditions and postconditions
 
-**Preconditions** — what must be true before the command executes:
+**Preconditions** — what must be true before execution:
 
 - Authorization: caller has the required permission.
 - Aggregate state: e.g., "status must be `Pending`".
-- Input validation: beyond DTO/validator rules, any domain-level validation.
+- Input validation beyond DTO/validator rules: any domain-level validation.
 - Existence of referenced entities: e.g., "reviewer must be an active user".
 
-**Postconditions** — what is guaranteed to be true after the command succeeds:
+**Postconditions** — what is guaranteed after success:
 
 - Aggregate state change: e.g., "status transitions from `Pending` to `Approved`".
 - Persistence: e.g., "aggregate is persisted with new `LastModificationTime`".
 - Events: e.g., "`UserRequestApprovedEto` is raised".
 - Side effects: e.g., "email reminder job is queued".
 
-One bullet per condition. Source each to a clause where possible — use the same deep-link format as the `**Source:**` field.
-
----
-
-## Authorization
-
-Permission string pattern follows CLAUDE.md `permissions_class`:
-
-- Default: `<Module>Permissions.<AggregateNamePlural>.<Verb>`.
-- For projects with a project-wide permissions class (e.g., `permissions_class: TradeFinancePermissions`), the pattern is `TradeFinancePermissions.<AggregateNamePlural>.<Verb>` with a nested-class structure per module.
-
-Examples (for `permissions_class: TradeFinancePermissions`):
-
-- `TradeFinancePermissions.UserRequests.Create`
-- `TradeFinancePermissions.UserRequests.Approve`
-- `TradeFinancePermissions.UserRequests.Reject`
-
-Declared in `<permissions_class>.cs` as nested static classes per module, and registered in `<Module>PermissionDefinitionProvider`.
-
----
-
-## Audience and HTTP route
-
-When CLAUDE.md declares `api_routing_conventions.public_prefix` and `private_prefix`:
-
-- **Public** — Commands invoked by customer-facing Actors (Customer, Applicant, Prospective Customer). Routed under `public_prefix`. Typically on a `PublicAppService` base class.
-- **Private** — Commands invoked by internal/backoffice Actors (Triage Officer, Compliance Reviewer, Administrator). Routed under `private_prefix`. Typically on a `PrivateAppService` base class.
-
-Route format: `<prefix><aggregate-slug>/<action>` — e.g., `POST /api/public/app/user-requests`, `POST /api/private/app/user-requests/{id}/approve`.
-
-Actors that sit at the boundary (e.g., `System: BackgroundJob`) default to the Private surface unless the FRS explicitly scopes the action to a customer-callable endpoint.
+One bullet per condition. Source each to a clause where possible — same deep-link format as `**Source:**`.
 
 ---
 
 ## Domain events raised
 
-One bullet per event:
+One bullet per event: `<EventName>Eto — Required | Optional / future integration hook — consumer: <wiki link or "future">`.
 
-- `<EventName>Eto` — `Required` | `Optional / future integration hook` — consumer: `<wiki link or "future">`.
+Names are PascalCase past-tense, with `Eto` suffix for distributed events. Local (in-process) events can omit the suffix but should be named consistently with distributed versions.
 
-Event names are PascalCase, past-tense, with `Eto` suffix for distributed events. Local (in-process) events can omit the suffix but should be named consistently with the distributed versions.
+See `references/integrations.md` "When to synthesize a Domain Event" for the gating policy. Standard CRUD commands do NOT raise domain events.
 
 ---
 
@@ -221,6 +157,7 @@ Event names are PascalCase, past-tense, with `Eto` suffix for distributed events
 | Defect | Fix |
 |---|---|
 | Command with a noun name (e.g., `UserRequest`) | Rename with a verb prefix |
+| Command name contains `Async` / `async` | Strip the token; record a soft warning |
 | Command with no preconditions listed | Extract at minimum: authorization, aggregate state, input validity |
 | Command with no postconditions listed | At minimum: describe the state change that occurred |
 | Command with no `**Authorization:**` | Add the permission string; if truly public, note "anonymous" and justify |
@@ -230,7 +167,4 @@ Event names are PascalCase, past-tense, with `Eto` suffix for distributed events
 | `**Domain events raised:**` omitted (not even "none") | Include the field; write "none" if no events |
 | `**Validation:**` field missing when CLAUDE.md declares `validation_library` | Add `<CommandName>InputValidator (<library>)` reference |
 | Input DTO uses `[Required]` / `[StringLength]` when `validation_library: FluentValidation` | Rewrite Validation column as FluentValidation rule summaries; validator lives in its own file |
-| `**Audience:**` missing when CLAUDE.md declares Public/Private split | Infer from Actor and add; update `**HTTP route:**` prefix accordingly |
-| `**HTTP route:**` uses wrong prefix for Audience | Public → `public_prefix`; Private → `private_prefix` |
-| Permission string uses wrong class (e.g., `<Module>Permissions` when CLAUDE.md declares `permissions_class: TradeFinancePermissions`) | Use the declared class |
 | `**Source:**` lists opaque IDs like `FRS-123#c7` | Rewrite as GitLab section-anchor deep links |

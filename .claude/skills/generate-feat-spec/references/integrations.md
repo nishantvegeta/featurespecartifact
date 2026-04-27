@@ -6,6 +6,20 @@ An Integration describes a binding between this feature and an external system, 
 
 ---
 
+## When to synthesize a Domain Event
+
+Domain events are synthesized **only** when clause evidence supports one of:
+
+- **(a) Messaging / queue consumption** — a distributed event is published to (or consumed from) a message broker (e.g., RabbitMQ, Azure Service Bus). The event is the integration contract.
+- **(b) Cross-module async side effects** — a successful operation in this module triggers a reaction in a different module asynchronously (e.g., user registration triggers a welcome-email job in the Notifications module, approval triggers a credit-check workflow in the CreditRisk module).
+- **(c) External-system integration** — the event is consumed by or produced for an external system (partner API, webhook, third-party service).
+
+**Standard CRUD commands do NOT emit domain events.** A create, update, or delete command that has no async consumer, no cross-module side effect, and no external integration target must not have a `Domain events raised` entry. Generating speculative events "for future use" is forbidden.
+
+**Deferred Events sub-section.** Any event whose consumer is `Optional / future integration hook` must move to a separate `**Deferred Events:**` sub-section at the bottom of the originating node entry (Entity or Command). It must **not** appear in the main `**Domain events raised:**` table. This keeps the main table free of noise and makes it clear which events are actually wired up.
+
+---
+
 ## When to create an Integration
 
 Create an Integration when a clause describes:

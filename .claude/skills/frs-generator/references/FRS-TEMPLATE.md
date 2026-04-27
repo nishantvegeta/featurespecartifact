@@ -17,7 +17,7 @@ One paragraph. What business operation does this spec describe, and why does it 
 ## 2. Scope
 
 **In scope:** What this FRS covers.
-**Out of scope:** What it explicitly does not cover (adjacent operations, downstream processes, technical concerns).
+**Out of scope:** What it explicitly does not cover.
 
 ---
 
@@ -26,14 +26,11 @@ One paragraph. What business operation does this spec describe, and why does it 
 | Actor | Role | Notes |
 |-------|------|-------|
 | Primary Actor | The one who initiates this operation | |
-| Secondary Actor | Any person or role involved in processing or approving | Optional |
-| Supporting Actor | Any external party or body whose involvement is required | Optional |
+| Secondary Actor | Any person involved in processing or approving | Optional |
 
 ---
 
 ## 4. Preconditions
-
-Conditions that MUST be true before this operation can begin:
 
 - Precondition 1
 - Precondition 2
@@ -44,27 +41,24 @@ Conditions that MUST be true before this operation can begin:
 
 ## 5. Dependencies
 
-Other operations, approvals, or external parties this operation depends on before it can proceed or complete.
+**Inter-FRS Dependencies:**
+- **FRS-XX: [Operation Name]** — [brief explanation]
 
-| Dependency | Type | Notes |
-|------------|------|-------|
-| [FRS-XX / External Party / Approval Body] | Upstream / Parallel / Downstream | e.g., approval must be obtained before this operation begins |
+**System & Technical Dependencies:**
+- **Authentication & Authorization** — [what must be verified]
+- **Entity Context** — [what data or access is required]
 
-*Types: **Upstream** = must complete before this operation starts. **Parallel** = runs alongside this operation. **Downstream** = triggered by this operation's successful completion.*
-
-*Omit section if no dependencies exist.*
+*If no inter-FRS dependencies exist, state "None."*
 
 ---
 
 ## 6. Trigger
 
-What event initiates this operation? (Actor-submitted request, scheduled event, approval decision, external notification, etc.)
+What event initiates this operation?
 
 ---
 
 ## 7. Main Flow
-
-The happy path — numbered steps, present tense, actor clearly labelled.
 
 1. **[Actor]** does X.
 2. **[System]** responds with Y.
@@ -76,8 +70,6 @@ The happy path — numbered steps, present tense, actor clearly labelled.
 
 ## 8. Alternative Flows
 
-Named sub-paths that branch from the main flow and still result in a successful outcome.
-
 ### 8a. [Name of Alternative]
 
 *Branches from step N of the main flow.*
@@ -85,107 +77,252 @@ Named sub-paths that branch from the main flow and still result in a successful 
 1. ...
 2. Returns to main flow at step M. / Operation ends successfully.
 
-*Omit section if no meaningful alternatives exist.*
+*Omit if no meaningful alternatives exist.*
 
 ---
 
 ## 9. Exception Flows
 
-Conditions that cause the operation to fail, pause, or require correction.
-
 ### 9a. [Name of Exception]
 
 - **Trigger:** What causes this exception.
-- **Outcome:** What the actor is informed of and what state the operation is left in.
-- **Resolution:** How the actor may recover, or that the operation terminates.
+- **Outcome:** What the actor is informed of.
+- **Resolution:** How the actor may recover.
 
-*Minimum coverage required: invalid / incomplete input, unauthorised access, failure or non-completion of the operation.*
+*Minimum: invalid input, unauthorised access, failure / non-completion.*
 
 ---
 
 ## 10. Postconditions
 
-**On success:** The business state after the main flow completes successfully.
-**On failure:** The business state if an exception flow terminates the operation.
+**On success:** Business state after main flow completes.
+**On failure:** Business state if an exception terminates the operation.
 
 ---
 
 ## 11. Form Fields
 
-Fields the actor must provide or review to complete this operation. Describe each field in business terms — no data types, column names, or technical constraints.
-
 | Field Name | Mandatory | Input Method | Description | Validation / Remarks |
 |------------|-----------|--------------|-------------|----------------------|
-| [Field Name] | Yes / No / Conditional | Free text / Dropdown / Lookup / Auto-generated / Toggle / Date | What this field captures and why | Business-level rule governing valid input (e.g., "must match submitted invoice", "required only if reimbursement clause is selected") |
+| [Field Name] | Yes / No / Conditional | Free text / Dropdown / Lookup / Toggle / Date | What this field captures | Business-level validation rule |
 
-*Conditional = mandatory only when a specific prior condition or selection applies. State that condition in Validation / Remarks.*
-
-*Omit section if this operation involves no actor-facing data entry.*
+*Omit if no actor-facing data entry.*
 
 ---
 
 ## 12. Functional Requirements
-
-Specific obligations the operation must satisfy, stated as business-facing SHALL statements.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | FR-[FRS-ID]-01 | The system SHALL … | Must / Should / May |
 | FR-[FRS-ID]-02 | The system SHALL … | |
 
-**Priority key:** Must = required for the operation to function. Should = important but not blocking. May = desirable enhancement.
+---
+
+## 13. Scenarios
+
+Scenarios in this section feed **directly into the script-generator skill** to produce Playwright TypeScript tests. No bridge or TC-generator skill is needed. Each step maps to exactly one Playwright action.
 
 ---
 
-## 13. Non-Functional Requirements
+### 📌 Mandatory Scenario Types (minimum 3 per FRS)
 
-Include only NFRs specific to this operation. Platform-wide NFRs belong in a separate architecture spec.
+**1. Success Scenario** — Full happy path
+**2. Edge / Variation Scenario** — Alternate path or boundary condition
+**3. Failure / Exception Scenario** — Blocked operation with visible error
+
+---
+
+### 🔧 Selector Rules (Strictly Enforced)
+
+| Step type | Selector | Playwright output |
+|-----------|----------|-------------------|
+| Navigate to page | `selector: n/a` | `page.goto('/route')` |
+| Click a button | `selector: #element-id` | `page.click('#element-id')` |
+| Fill a text field | `selector: #element-id` | `page.fill('#element-id', value)` |
+| Click a checkbox | `selector: #element-id` | `page.click('#element-id')` |
+| Select by visible label | `selector: getByLabel("Label Text")` | `page.getByLabel('Label Text').click()` |
+| Verify element visible | `selector: #element-id` | `expect(locator).toBeVisible()` |
+
+**Hard rules:**
+- ✅ Navigation → URL in step text, always `selector: n/a`
+- ✅ One selector per step — never two, never "or"
+- ✅ Use `getByLabel("Exact Label")` when element ID is dynamic
+- ✅ Use `#element-id` for stable IDs
+- ❌ No `[uuid]`, `[dynamic]`, or unresolved placeholders in selectors
+- ❌ No alternative selectors — pick one and use it
+
+---
+
+### 🧾 Scenario Format
+
+#### Scenario N: <Scenario Name>
+
+**Feature:** <feature-name> | **Type:** Functional | **Priority:** High/Medium/Low | **Tags:** @smoke/@regression @<feature-name>
+
+**Preconditions:**
+- <state before scenario begins>
+
+**Steps:**
+
+1. <step text> -> selector: <selector or n/a>
+2. <step text> -> selector: <selector or n/a>
+3. <step text> -> selector: <selector or n/a>
+
+**Expected Result:**
+- <observable outcome>
+
+**Test Data:**
+- <Field>: `<concrete value — use {timestamp} for unique fields>`
+
+---
+
+### 🧾 Scenario Examples
+
+#### Scenario 1: Submit Unblock Request (Successful Flow)
+
+**Feature:** account-unblocker | **Type:** Functional | **Priority:** High | **Tags:** @smoke @account-unblocker
+
+**Preconditions:**
+- User is logged in as Admin
+- Target account was blocked by the application (not externally)
+
+**Steps:**
+
+1. Navigate to /account-unblocker/create -> selector: n/a
+2. Fill in the Account Number field -> selector: #form-account-number-input
+3. Fill in the Customer Name field -> selector: #form-customer-name-input
+4. Fill in the Registered Phone Number field -> selector: #form-registered-phone-input
+5. Select Services to Unblock -> selector: #form-service-checkbox-CLIENT_ACCOUNT
+6. Select Verification Method -> selector: getByLabel("Emergency Bypass")
+7. Fill in the Emergency Reason field -> selector: #form-emergency-reason-input
+8. Submit the form -> selector: #form-submit-btn
+9. Verify request appears in the list -> selector: #unblock-request-table
+
+**Expected Result:**
+- Unblock request is created with Pending status
+- Request appears in the unblock request list
+
+**Test Data:**
+- Account Number: `8888888888`
+- Customer Name: `TC001 Customer {timestamp}`
+- Registered Phone Number: `TC001 Phone {timestamp}`
+- Emergency Reason: `TC001 Reason {timestamp}`
+
+---
+
+#### Scenario 2: Submit Without Required Field (Failure Flow)
+
+**Feature:** account-unblocker | **Type:** Functional | **Priority:** Medium | **Tags:** @regression @account-unblocker
+
+**Preconditions:**
+- User is logged in as Admin
+- User is on the Create Unblock Request form
+
+**Steps:**
+
+1. Navigate to /account-unblocker/create -> selector: n/a
+2. Leave Account Number field empty -> selector: n/a
+3. Fill in the Customer Name field -> selector: #form-customer-name-input
+4. Submit the form -> selector: #form-submit-btn
+5. Verify validation error on Account Number field -> selector: #form-account-number-error
+
+**Expected Result:**
+- Form submission is blocked
+- Validation error shown on Account Number field
+- No request is created
+
+**Test Data:**
+- Customer Name: `TC002 Customer {timestamp}`
+
+---
+
+#### Scenario 3: Submit With Already Active Account (Edge Case)
+
+**Feature:** account-unblocker | **Type:** Functional | **Priority:** Medium | **Tags:** @regression @account-unblocker
+
+**Preconditions:**
+- User is logged in as Admin
+- Target account is already in an active/unblocked state
+
+**Steps:**
+
+1. Navigate to /account-unblocker/create -> selector: n/a
+2. Fill in the Account Number field -> selector: #form-account-number-input
+3. Fill in the Customer Name field -> selector: #form-customer-name-input
+4. Submit the form -> selector: #form-submit-btn
+5. Verify error notification appears -> selector: #form-error-notification
+
+**Expected Result:**
+- System blocks the submission
+- Error informs admin the account is not blocked
+- No request is created
+
+**Test Data:**
+- Account Number: `1111111111`
+- Customer Name: `TC003 Customer {timestamp}`
+
+---
+
+### 🚨 Enforcement Checklist
+
+Before presenting any FRS, verify every scenario:
+
+- [ ] Minimum 3 scenarios: Success, Edge/Variation, Failure/Exception
+- [ ] Each has: Feature, Type, Priority, Tags, Preconditions, Steps, Expected Result, Test Data
+- [ ] Every step has exactly one `-> selector:` entry
+- [ ] Navigation steps: URL in step text, `selector: n/a`
+- [ ] No `[placeholder]`, `[uuid]`, or unresolved dynamic values in selectors
+- [ ] No "or" / no alternative selectors in any step
+- [ ] Dynamic labels use `getByLabel("Exact Label Text")`
+- [ ] Stable elements use `#element-id`
+- [ ] Test Data uses concrete values with `{timestamp}` for unique fields
+- [ ] Expected Result lists only observable outcomes
+- [ ] No QA metadata (Status, Result, Error, Recovery Action, Screenshot)
+
+---
+
+## 14. Non-Functional Requirements
 
 | Category | Requirement |
 |----------|-------------|
-| Performance | e.g., confirmation presented to actor within an acceptable business timeframe |
-| Data Retention | e.g., submitted records retained for the period required by policy |
-| Availability | e.g., operation available during standard business hours |
+| Performance | e.g., page loads within acceptable timeframe |
+| Data Retention | e.g., records retained per policy |
+| Availability | e.g., available during business hours |
 
-*Omit section if no operation-specific NFRs apply.*
+*Omit if none apply.*
 
 ---
 
-## 14. Business Rules
-
-Constraints imposed by policy, regulation, or domain logic — not technical decisions.
+## 15. Business Rules
 
 - BR-01: [Rule]
 - BR-02: [Rule]
 
-*(Minimum 2 business rules required per Skill Constraint.)*
+*(Minimum 2 required.)*
 
 ---
 
-## 15. Edge Cases
+## 16. Edge Cases
 
-Boundary or unusual-but-valid scenarios the operation must handle correctly.
+- EC-01: [Description and expected outcome]
+- EC-02: [Description and expected outcome]
 
-- EC-01: [Edge case description and expected business outcome]
-- EC-02: [Edge case description and expected business outcome]
-
-*(Minimum 2 edge cases required per Skill Constraint.)*
+*(Minimum 2 required.)*
 
 ---
 
-## 16. Open Questions
-
-Business decisions or policy clarifications that remain unresolved and require stakeholder input.
+## 17. Open Questions
 
 | # | Question | Owner | Due |
 |---|----------|-------|-----|
 | 1 | … | | |
 
-*Omit section if no open questions remain.*
+*Omit if none.*
 
 ---
 
-## 17. Revision History
+## 18. Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|

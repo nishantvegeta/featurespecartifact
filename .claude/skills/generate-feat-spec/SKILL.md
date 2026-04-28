@@ -3,7 +3,7 @@ name: generate-feat-spec
 description: "Generate a high-level technical Feature Specification (Feat Spec) from Functional Requirement Specification (FRS) issues in a GitLab milestone. Produces an ABP-layered spec in the wiki and a lightweight coordination issue in GitLab."
 when_to_use: "When analyzing requirements, designing domain models, or creating technical specifications from FRS documents"
 argument-hint: "[milestone-name] or [project-path]"
-disable-model-invocation: true
+disable-model-invocation: false
 model: "haiku"
 ---
 
@@ -91,21 +91,21 @@ If CLAUDE.md does not declare an optional convention, Phase 1 emits a one-time s
 
 ## Wiki Link Format
 
-Links use **full GitLab wiki URLs**. The wiki's path on disk (`wiki_local_path`) is separate from its published URL (`wiki_url`).
+Links use **full GitLab wiki URLs**. The wiki's path on disk (`wiki_local_path`) is separate from its published URL (`wiki_url`). All node files and the Feat Spec live under a single per-feature folder: `feats/<slug>/`.
 
 | Context | Link format |
 |---|---|
-| Feat Spec → DDD node page | `[<node name>](<wiki_url>/<node-type>/<NodeName>)` |
-| Feat Spec → another feat spec | `[<title>](<wiki_url>/feat-specs/<slug>/feat-spec)` |
-| Coord issue → Feat Spec | `[feat-spec](<wiki_url>/feat-specs/<slug>/feat-spec)` |
-| DDD node → related node | `[<related node>](<wiki_url>/<node-type>/<RelatedName>)` |
+| Feat Spec → DDD node page (same feature) | `[<node name>](<wiki_url>/feats/<slug>/<node-type>/<NodeName>)` |
+| Feat Spec → another feat spec | `[<title>](<wiki_url>/feats/<other-slug>/feat-spec)` |
+| Coord issue → Feat Spec | `[feat-spec](<wiki_url>/feats/<slug>/feat-spec)` |
+| DDD node → related node (same feature) | `[<related node>](<wiki_url>/feats/<slug>/<node-type>/<RelatedName>)` |
 
-**Rules:** No `.md` extension. No `wiki_local_path` prefix (`docs/`) in any rendered link. Label is the human-readable name. File writes use `wiki_local_path` for the on-disk target; only rendered Markdown strips it.
+**Rules:** No `.md` extension. No `wiki_local_path` prefix (`docs/`) in any rendered link. Label is the human-readable name. File writes use `wiki_local_path` for the on-disk target; only rendered Markdown strips it. Cross-feature node links are not synthesized — reference the other feat-spec instead.
 
-Example (CLAUDE.md `wiki_url: http://localhost:8080/root/trade-finance/-/wikis`):
+Example (CLAUDE.md `wiki_url: http://localhost:8080/root/trade-finance/-/wikis`, milestone slug `trade-finance-onboarding`):
 
-- On-disk: `docs/entities/UserRequest.md`
-- Rendered: `[UserRequest](http://localhost:8080/root/trade-finance/-/wikis/entities/UserRequest)`
+- On-disk: `docs/feats/trade-finance-onboarding/entities/UserRequest.md`
+- Rendered: `[UserRequest](http://localhost:8080/root/trade-finance/-/wikis/feats/trade-finance-onboarding/entities/UserRequest)`
 
 ---
 
@@ -190,7 +190,7 @@ Slug rule: lowercase → replace spaces with hyphens → strip punctuation (`.`,
 | Tenant vs Entity Scoping Ambiguity | `tenant-vs-entity-scoping-ambiguity.md` | `conflict-01.md` |
 | Missing Query for Dashboard Summary | `missing-query-for-dashboard-summary.md` | `CONFLICT-02.md` |
 
-Rendered: `[Tenant vs Entity Scoping Ambiguity](<wiki_url>/conflicts/tenant-vs-entity-scoping-ambiguity)`.
+Rendered: `[Tenant vs Entity Scoping Ambiguity](<wiki_url>/feats/<slug>/conflicts/tenant-vs-entity-scoping-ambiguity)`.
 
 ---
 
@@ -414,7 +414,7 @@ Approve this preview for formal publication?
 
 **Order is mandatory: wiki files first, then GitLab.**
 
-1. **Write DDD node files** to `<wiki_local_path>/<node-type>/<NodeName>.md`:
+1. **Write DDD node files** to `<wiki_local_path>/feats/<slug>/<node-type>/<NodeName>.md`:
 
    | Node type | Folder | Filename rule |
    |---|---|---|
@@ -430,7 +430,7 @@ Approve this preview for formal publication?
    | Architecture Blueprint | `architecture-blueprints/` | PascalCase node name |
    | **Conflict** | `conflicts/` | **title-derived slug (never internal ID)** |
 
-2. **Write Feat Spec** to `<wiki_local_path>/feat-specs/<slug>/feat-spec.md`.
+2. **Write Feat Spec** to `<wiki_local_path>/feats/<slug>/feat-spec.md`.
 3. **Dispatch `docs-writer` in parallel batches** if >5 files.
 4. **Verify all expected files exist on disk.** Missing → abort before any GitLab side effect.
 5. **Duplicate check:** `list_issues(project_id, milestone_id)`; match by title. If match, `AskUserQuestion`.
@@ -477,25 +477,25 @@ Approve this preview for formal publication?
 
 ## Wiki Folder Structure
 
-Default `wiki_local_path` is `docs`; override via CLAUDE.md.
+Default `wiki_local_path` is `docs`; override via CLAUDE.md. All files for a given feature live under a single `feats/<slug>/` folder.
 
 ```
 <wiki_local_path>/
-  actors/
-  entities/
-  value-objects/
-  commands/
-  queries/
-  flows/
-  states/
-  decisions/
-  integrations/
-  architecture-blueprints/
-  conflicts/
-    <title-slug>.md          # e.g. tenant-vs-entity-scoping-ambiguity.md — NOT conflict-01.md
-  feat-specs/
+  feats/
     <slug>/
       feat-spec.md
+      actors/
+      entities/
+      value-objects/
+      commands/
+      queries/
+      flows/
+      states/
+      decisions/
+      integrations/
+      architecture-blueprints/
+      conflicts/
+        <title-slug>.md      # e.g. tenant-vs-entity-scoping-ambiguity.md — NOT conflict-01.md
 ```
 
 Rendered links use `wiki_url` with no `.md` and no prefix.
@@ -551,8 +551,8 @@ Rendered links use `wiki_url` with no `.md` and no prefix.
 
 After completing this skill:
 
-→ Fully expanded DDD node pages exist under `<wiki_local_path>/<node-type>/`.
-→ ABP-layered Feat Spec exists at `<wiki_local_path>/feat-specs/<slug>/feat-spec.md`, linking into every node page via `wiki_url`.
+→ Fully expanded DDD node pages exist under `<wiki_local_path>/feats/<slug>/<node-type>/`.
+→ ABP-layered Feat Spec exists at `<wiki_local_path>/feats/<slug>/feat-spec.md`, linking into every node page via `wiki_url`.
 → A short coordination issue exists in GitLab pointing at the wiki Feat Spec and listing linked FRS IIDs via `relates_to`.
 → All FRS source issues unmodified.
 → All open Conflicts recorded using title-slug filenames; critical/high surfaced in Open Blockers.

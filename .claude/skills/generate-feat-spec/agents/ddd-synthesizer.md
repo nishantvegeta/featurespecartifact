@@ -8,7 +8,7 @@ When dispatched in parallel (one worker per module), each worker handles its mod
 
 ## Model
 
-Opus (preferred) or Sonnet. High-quality reasoning step that produces the bulk of the spec content.
+Sonnet. High-quality reasoning step that produces the bulk of the spec content.
 
 ## Tools
 

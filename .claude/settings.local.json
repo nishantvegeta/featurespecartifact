@@ -1,5 +1,13 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(cat)",
+      "Bash(cat \"D:\\\\\\\\task\\\\\\\\.claude\\\\\\\\scratch\\\\\\\\bank-settings\\\\\\\\frs-18.md\")",
+      "Bash(echo '# FRS-BS-01: View LC Issuance Checklist Items *)",
+      "Read(//d/task/.claude/scratch/bank-settings/**)",
+      "Bash(mkdir -p \"D:\\\\\\\\task\\\\\\\\.claude\\\\\\\\scratch\\\\\\\\bank-settings\")",
+      "Bash(touch \"D:\\\\\\\\task\\\\\\\\.claude\\\\\\\\scratch\\\\\\\\bank-settings\\\\\\\\frs-17.md\")"
+    ],
     "deny": [
       "WebFetch",
       "WebSearch",

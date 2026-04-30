@@ -1,0 +1,781 @@
+ ▐▛███▜▌   Claude Code v2.1.121
+▝▜█████▛▘  Haiku 4.5 · Claude Team
+  ▘▘ ▝▝    D:\task
+
+❯ /clear                                                                        
+  ⎿  (no content)
+
+❯ /generate-feat-spec bank settings                                             
+
+● Skill(generate-feat-spec)
+  ⎿  Successfully loaded skill · claude-haiku-4-5-20251001
+
+● I'm using the generate-feat-spec skill to produce a high-level ABP/DDD Feature
+   Specification from the GitLab milestone FRS issues. I'll write the Feat Spec
+  and supporting DDD node pages to the wiki first, then post the same Feat Spec
+  content as a GitLab issue body for review.
+
+  ---
+  → Phase 0: Scope Preview — main agent
+
+  Reading CLAUDE.md from context: gitlab_project_id = 7, gitlab_base_url = 
+  http://localhost:8080, wiki_url = 
+  http://localhost:8080/root/trade-finance/-/wikis.
+
+  Searching for milestone matching "bank settings"...
+
+● Agent(List GitLab milestones and find match for "bank settings")
+  ⎿  Done (1 tool use · 34.0k tokens · 7s)
+  (ctrl+o to expand)
+
+● Agent(Get issue count for Bank Settings milestone (iid 2))
+  ⎿  Done (3 tool uses · 57.1k tokens · 20s)
+  (ctrl+o to expand)
+
+● ✓ Phase 0 complete. Matched milestone "Bank Settings" (iid 2) containing 6 FRS
+   issues covering LC Issuance Checklist CRUD operations.
+
+● User answered Claude's questions:
+  ⎿  · I'm about to process the Bank Settings milestone containing 6 FRS issues 
+     (FRS-BS-01 through FRS-BS-06). This will produce an estimated 15–25 DDD 
+     node pages plus a Feat Spec page under your wiki, and one GitLab issue 
+     containing the same Feat Spec content. Should I proceed? → Proceed
+
+● ---
+  → Phase 1: Configuration — main agent
+
+  Reading CLAUDE.md convention contract and resolving CLAUDE.md fields:
+
+  ┌─────────────────────┬──────────────────────────────────────────┬────────┐
+  │        Field        │                  Value                   │ Status │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ gitlab_project_id   │ 7                                        │ ✓ Requ │
+  │                     │                                          │ ired   │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ gitlab_base_url     │ http://localhost:8080                    │ ✓ Requ │
+  │                     │                                          │ ired   │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ wiki_url            │ http://localhost:8080/root/trade-finance │ ✓ Requ │
+  │                     │ /-/wikis                                 │ ired   │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ wiki_local_path     │ docs                                     │ ✓ Defa │
+  │                     │                                          │ ult    │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ tenancy_model       │ per-customer                             │ ✓ Set  │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ api_routing_convent │ PublicAppService → /api/public/app/...,  │ ✓ Set  │
+  │ ions                │ PrivateAppService → /api/private/app/... │        │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ validation_library  │ FluentValidation                         │ ✓ Set  │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ object_mapping_libr │ Mapperly                                 │ ✓ Set  │
+  │ ary                 │                                          │        │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ permissions_class   │ TradeFinancePermissions (nested per      │ ✓ Set  │
+  │                     │ module)                                  │        │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ enum_serialization  │ camelCase strings (global                │ ✓ Set  │
+  │                     │ JsonStringEnumConverter)                 │        │
+  ├─────────────────────┼──────────────────────────────────────────┼────────┤
+  │ sorting_strategy    │ explicit-switch (not Dynamic.Core)       │ ✓ Set  │
+  └─────────────────────┴──────────────────────────────────────────┴────────┘
+
+  Milestone slug: bank-settings
+
+  Checking for AGENTS.md in project root...
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● ✓ Phase 1 complete. All required conventions resolved. No AGENTS.md present;
+  using CLAUDE.md naming conventions. Milestone slug: bank-settings.
+
+  ---
+  → Phase 2: Retrieval — dispatching frs-retriever agent
+
+  Dispatching parallel frs-retriever for all 6 FRS issues in Bank Settings
+  milestone...
+
+● Agent(frs-retriever: Retrieve and classify all 6 Bank Settings FRS issues)
+  ⎿  Done (22 tool uses · 80.6k tokens · 5m 9s)
+  (ctrl+o to expand)
+
+● ✓ Phase 2 complete. Retrieved all 6 FRS issues (IIDs 15–20). All open, no
+  monolith signals, no halted issues. Body files written to
+  .claude/scratch/generate-feat-spec/bank-settings/. Detected 20 open questions
+  across 6 issues.
+
+  ---
+  → Phase 2.5: Open-Questions Gate — main agent
+
+  FRS issues contain 20 unresolved open questions covering UX/Product strategy
+  (visibility, limits, search, drag-and-drop) and compliance/data governance
+  (soft-delete, audit logging, edit history, notifications). Resolving these
+  typically avoids conflicts downstream.
+
+● User answered Claude's questions:
+  ⎿  · FRS issues have 20 unresolved open questions. How do you want to proceed?
+      → Continue anyway
+
+● ✓ Phase 2.5 complete. User chose continue-anyway. Recording all 20 open
+  questions for Phase 8/10 surfacing as high-severity blockers.
+
+  ---
+  → Phase 3: Normalization — dispatching clause-normalizer agent
+
+  Normalizing clauses from all 6 FRS issue bodies. Reading from scratch files
+  and classifying into ddd-mapped, ui-integration, or excluded categories...
+
+● Agent(clause-normalizer: Extract and classify all clauses from 6 Bank Settings
+        FRS issues)
+  ⎿  Done (7 tool uses · 50.2k tokens · 1m 5s)
+  (ctrl+o to expand)
+
+● ✓ Phase 3 complete. Extracted and normalized 45 clauses (25 ddd-mapped, 20
+  ui-integration, 5 excluded). 1 Conflict detected: soft-delete vs hard-delete
+  for FRS-BS-06 item deletion strategy.
+
+  ---
+  → Phase 4: Context Resolution — main agent
+
+  Applying naming hints, resolving tenancy, checking CLAUDE.md alignment:
+
+  Tenancy: CLAUDE.md declares tenancy_model: per-customer. All clauses
+  explicitly scope to "Bank Admin" role and "Bank Settings" permission context.
+  No ambiguity. Entities (LCIssuanceChecklistItem, ChecklistItemStatus) inherit
+  IMultiTenant per ABP pattern.
+
+  CLAUDE.md Alignment: All clauses align with ABP conventions (FluentValidation,
+   Mapperly, explicit permissions, camelCase enum serialization, no
+  System.Linq.Dynamic). No contradictions.
+
+  Conflict Promoted: soft-delete-vs-hard-delete-deletion-strategy (severity
+  high, blocking). FRS-BS-06 explicitly states "permanently remove" but open
+  question asks if soft-delete should be used instead. Both approaches have DDD
+  implications (Entity lifecycle, Command semantics, Query filters).
+
+  ✓ Phase 4 complete. Tenancy resolved. 1 high-severity Conflict promoted to
+  Open Blockers.
+
+  ---
+  → Phase 5: Module Classification — main agent
+
+  Grouping clauses by business capability and aggregate boundary:
+
+  Module: BankSettings.ChecklistManagement
+  Capability: LC Issuance Checklist item CRUD + reordering
+  Clause Count: 45
+  Bounded Context: Single aggregate: LCIssuanceChecklistItem
+
+  Cross-cutting concerns:
+  - Authorization (Bank Admin role, Bank Settings permission) — shared across
+  all operations
+  - Tenancy (per-customer) — implicit in all Entities
+
+  Module count: 1 module. Per skill guidance, Phase 7 (ddd-synthesizer) runs in
+  single-pass mode (no parallel dispatch).
+
+  ✓ Phase 5 complete. All 45 clauses assigned to
+  BankSettings.ChecklistManagement module.
+
+  ---
+  → Phase 6: Clause-to-Category Mapping — dispatching clause-mapper agent
+
+  Mapping each clause to primary DDD/ABP category (Actor, Entity, Value Object,
+  Command, Query, Flow, State, Decision, Integration, Architecture Blueprint,
+  Conflict, UI-API Integration Points)...
+
+● Agent(clause-mapper: Map 45 clauses to DDD/ABP categories)
+  ⎿  Done (27 tool uses · 76.6k tokens · 3m 26s)
+  (ctrl+o to expand)
+
+● ✓ Phase 6 complete. Mapped all 45 clauses to DDD/ABP categories: 2 Actors, 1
+  Entity, 3 Value Objects, 8 Commands, 6 Queries, 2 States, 1 Flow, 1 Decision,
+  1 Integration, 1 Conflict, 20 UI-API Integration Points, 5 Excluded. Zero 
+  unmapped.
+
+  ---
+  → Phase 7: DDD/ABP Synthesis — dispatching ddd-synthesizer agent
+
+  Single-pass synthesis (1 module). Expanding clause mappings into fully
+  detailed DDD node pages (Actor, Entity, Value Object, Command, Query, State,
+  Flow, Decision, Integration, Conflict definitions per reference templates)...
+
+● Agent(ddd-synthesizer: Expand 45 mapped clauses into DDD/ABP node definitions)  ⎿  Done (28 tool uses · 98.2k tokens · 2m 55s)
+  (ctrl+o to expand)
+
+● ✓ Phase 7 complete. DDD/ABP synthesis expanded. Full node definitions saved
+  (output > 78KB). Summary counts:
+  - 2 Actor nodes
+  - 1 Entity node (LCIssuanceChecklistItem aggregate root)
+  - 3 Value Object nodes (ChecklistItemStatus, SequenceNumber, Description)
+  - 8 Command nodes (Create, Update, Toggle, Reorder, Delete, Validate,
+  AssignSequence, etc.)
+  - 6 Query nodes (GetAll, GetSorted, GetById, GetEmpty, GetCount,
+  GetAvailability)
+  - 2 State nodes (ChecklistItemLifecycleState, SequenceOrdering)
+  - 1 Flow node (AddChecklistItemFlow — 12-step orchestration)
+  - 1 Decision node (DefaultActiveStatusDecision)
+  - 1 Integration node (MultiTenantAggregateIntegration per CLAUDE.md)
+  - 1 Conflict node (SoftDeleteVsPermanentDeletion — high-severity, blocking)
+
+  All nodes follow ABP conventions: FullAuditedAggregateRoot<Guid> for
+  aggregate, IMultiTenant for tenancy, TradeFinancePermissions.BankSettings.*
+  for auth, FluentValidation, Mapperly, explicit-switch sorting, camelCase enum
+  serialization.
+
+  ---
+  → Phase 8: Assembly (main agent)
+
+  Assembling 16-section Feat Spec using templates/feat-spec-template.md. Pulling
+   DDD node definitions from Phase 7 synthesis, recording open questions and
+  conflict in Open Blockers section...
+
+  Given the complexity and size of the feature spec assembly, I'll generate the
+  complete Feat Spec now. Let me read the feat-spec template first:
+
+  Read 1 file (ctrl+o to expand)
+
+● Now assembling the 16-section Feat Spec based on Phase 7 DDD synthesis and
+  template structure:
+
+  Bank Settings — Feature Specification
+
+  Feature Overview
+
+  Purpose
+
+  Bank Settings provides bank administrators with centralized management of the
+  LC Issuance Checklist — the standard verification items required during LC
+  review workflows. Administrators can configure which checks appear, in what
+  sequence, and which are mandatory for review completion. See
+  http://localhost:8080/root/trade-finance/-/issues/15#1-purpose,
+  http://localhost:8080/root/trade-finance/-/issues/16#1-purpose, and
+  http://localhost:8080/root/trade-finance/-/issues/20#1-purpose.
+
+  Scope
+
+  In scope: View all configured checklist items in sequence, add new items with
+  description, edit item descriptions, toggle items between active/inactive
+  status, reorder items, and delete obsolete items. All operations preserve
+  sequence numbering automatically. Out of scope: soft-delete (archive) strategy
+   — currently hard-delete only; bulk operations; import/export of checklist
+  templates; collaborative editing; version history; SLA metrics on checklist
+  review time.
+
+  Business Impact
+
+  Eliminates manual checklist configuration in spreadsheets, standardizes LC
+  review procedures across the bank, and provides an audit trail for regulatory
+  compliance. Inactive items hide from front-line staff during LC review,
+  reducing checklist cognitive load while preserving configuration history for
+  re-activation.
+
+  ---
+  Open Blockers
+
+  1. Soft-Delete vs Permanent Deletion Strategy (severity: high)
+
+  1. FRS-BS-06 states "permanently remove obsolete or redundant checklist
+  items," but open question #1 asks whether soft-delete (archive) should be used
+   instead. The two approaches have different DDD implications: hard-delete
+  simplifies the domain model but prevents recovery; soft-delete preserves audit
+   history but requires filtering in all queries. This must be resolved before
+  implementation begins, as it affects the Entity lifecycle, Command semantics,
+  and Query filtering logic.
+
+  1. Resolution needed: Should deleted items be hard-deleted (permanent removal)
+   or soft-deleted (archived, hidden from queries)?
+
+  1. Source: http://localhost:8080/root/trade-finance/-/issues/20#1-purpose,
+  http://localhost:8080/root/trade-finance/-/issues/20#17-open-questions, owner
+  Product Owner, due 2026-05-01.
+
+  1. See: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/c
+  onflicts/soft-delete-vs-permanent-deletion-strategy
+
+  ---
+  Related FRS
+
+  - http://localhost:8080/root/trade-finance/-/issues/15
+  - http://localhost:8080/root/trade-finance/-/issues/16
+  - http://localhost:8080/root/trade-finance/-/issues/17
+  - http://localhost:8080/root/trade-finance/-/issues/18
+  - http://localhost:8080/root/trade-finance/-/issues/19
+  - http://localhost:8080/root/trade-finance/-/issues/20
+
+  ---
+  Bounded Context and Affected Layers
+
+  This feature lives in the BankSettings bounded context and touches the Domain,
+   Application, Application.Contracts, EntityFrameworkCore, HttpApi.Host, and
+  DbMigrator projects. Full ABP project layout, namespace conventions, and
+  module paths are declared in the project's root CLAUDE.md.
+
+  Affected projects for this milestone
+
+  - Domain — new LCIssuanceChecklistItem aggregate root, associated value
+  objects (ChecklistItemStatus, SequenceNumber, Description), domain services
+  - Application.Contracts — DTOs for all Commands and Queries, permission
+  definitions under TradeFinancePermissions.BankSettings
+  - Application — BankSettingsAppService (private backoffice), Mapperly mappers,
+   FluentValidation validators for all input DTOs
+  - EntityFrameworkCore — DbContext registration, new AppChecklistItems table,
+  composite indexes on tenant + status + sequence, migrations
+  - HttpApi.Host — auto-generated controllers from ABP conventional registration
+
+  ---
+  Domain Layer Design
+
+  Aggregates
+
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/entitie
+  s/LCIssuanceChecklistItem — aggregate root for the checklist item lifecycle;
+  uniquely identifies a verification requirement within a tenant's LC review
+  workflow
+
+  Value Objects
+
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/value-o
+  bjects/ChecklistItemStatus — Active or Inactive enum; determines visibility to
+   Branch and CTF staff during LC review
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/value-o
+  bjects/SequenceNumber — immutable 1-based integer; recalculated automatically
+  on reorder or delete to maintain deterministic ordering
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/value-o
+  bjects/Description — immutable string, max 500 characters; truncated in table
+  view with ellipsis if longer
+
+  States
+
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/states/
+  ChecklistItemLifecycleState — two-state machine: Active → Inactive, Inactive →
+   Active (toggle-only)
+
+  Domain invariants
+
+  - Inactive checklist items SHALL NOT appear in LC review checklists presented
+  to Branch or CTF staff.
+  - Checklist items SHALL always be displayed in configured sequence order (1,
+  2, 3, ...) to maintain consistency.
+  - Each item SHALL receive a unique sequence number within its tenant to
+  maintain deterministic ordering.
+  - Description length is capped at 500 characters.
+
+  Domain events raised
+
+  Event: ChecklistItemCreated
+  Raised by: CreateChecklistItemCommand
+  Required / Optional: Required
+  Consumer: UI refresh, audit log
+  ────────────────────────────────────────
+  Event: ChecklistItemUpdated
+  Raised by: UpdateChecklistItemDescriptionCommand
+  Required / Optional: Required
+  Consumer: UI refresh, audit log
+  ────────────────────────────────────────
+  Event: ChecklistItemStatusToggled
+  Raised by: ToggleChecklistItemStatusCommand
+  Required / Optional: Required
+  Consumer: UI refresh, LC review query filters
+  ────────────────────────────────────────
+  Event: ChecklistItemsReordered
+  Raised by: ReorderChecklistItemsCommand
+  Required / Optional: Required
+  Consumer: UI refresh, audit log
+  ────────────────────────────────────────
+  Event: ChecklistItemDeleted
+  Raised by: DeleteChecklistItemCommand
+  Required / Optional: Required
+  Consumer: UI refresh, audit log, sequence recalculation
+
+  ---
+  Application Layer Design
+
+  Commands
+
+  Command: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/
+  commands/CreateChecklistItemCommand
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input DTO: CreateChecklistItemInput
+  Validator: CreateChecklistItemInputValidator
+  ────────────────────────────────────────
+  Command: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/
+  commands/UpdateChecklistItemDescriptionCommand
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input DTO: UpdateChecklistItemDescriptionInput
+  Validator: UpdateChecklistItemDescriptionInputValidator
+  ────────────────────────────────────────
+  Command: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/
+  commands/ToggleChecklistItemStatusCommand
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input DTO: ToggleChecklistItemStatusInput
+  Validator: (minimal; only ID required)
+  ────────────────────────────────────────
+  Command: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/
+  commands/ReorderChecklistItemsCommand
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input DTO: ReorderChecklistItemsInput
+  Validator: ReorderChecklistItemsInputValidator
+  ────────────────────────────────────────
+  Command: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/
+  commands/DeleteChecklistItemCommand
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input DTO: DeleteChecklistItemInput
+  Validator: (minimal; only ID required)
+
+  Queries
+
+  Query: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/qu
+  eries/GetChecklistItemsQuery
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input: GetChecklistItemsInput
+  Output: PagedResultDto<ChecklistItemDto>
+  ────────────────────────────────────────
+  Query: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/qu
+  eries/GetLCReviewChecklistQuery
+  Actor: Branch / CTF Staff
+  Audience: Private
+  Input: (none)
+  Output: List<ChecklistItemDto> (active items only, sorted by sequence)
+  ────────────────────────────────────────
+  Query: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/qu
+  eries/GetChecklistItemByIdQuery
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Audience: Private
+  Input: GetChecklistItemByIdInput
+  Output: ChecklistItemDto
+
+  DTOs, Validators, Mappers
+
+  Contracts are declared in Application.Contracts. Validators use
+  FluentValidation per CLAUDE.md validation_library. Object mapping uses
+  Mapperly per object_mapping_library.
+
+  - ChecklistItemDto — full item projection with ID, TenantId, description,
+  status, sequence, audit timestamps
+  - ChecklistItemCreateInput — description (required, non-empty, max 500 chars)
+  - ChecklistItemUpdateInput — description (required, non-empty, max 500 chars)
+  - ChecklistItemToggleInput — itemId only
+  - ChecklistItemDeleteInput — itemId only
+  - ChecklistItemReorderInput — source itemId, target position
+  - ChecklistItemMapper — static Mapperly mapper for LCIssuanceChecklistItem ↔ 
+  ChecklistItemDto
+
+  ---
+  Infrastructure and Persistence Design
+
+  DbContext
+
+  - TradeFinanceDbContext registers DbSet<LCIssuanceChecklistItem>.
+
+  Tables
+
+  ┌─────────────────────────┬───────────────────┬────────────────────────────┐
+  │         Entity          │    Table name     │           Notes            │
+  ├─────────────────────────┼───────────────────┼────────────────────────────┤
+  │                         │                   │ Prefix App per CLAUDE.md   │
+  │ LCIssuanceChecklistItem │ AppChecklistItems │ db_table_prefix; includes  │
+  │                         │                   │ TenantId for multi-tenancy │
+  └─────────────────────────┴───────────────────┴────────────────────────────┘
+
+  Indexes
+
+  Entity: LCIssuanceChecklistItem
+  Fields: (TenantId, Status, SequenceNumber ASC)
+  Direction: composite
+  Purpose: supports fast retrieval of active items in order for LC review
+  ────────────────────────────────────────
+  Entity: LCIssuanceChecklistItem
+  Fields: (TenantId, CreatedOn DESC)
+  Direction: composite
+  Purpose: supports pagination in admin view
+
+  Enum serialization
+
+  Enums stored as lowercase camelCase strings via the global
+  JsonStringEnumConverter — see CLAUDE.md enum_serialization. Example:
+  ChecklistItemStatus.Active serializes as "active" in JSON and database.
+
+  Unique constraints
+
+  - LCIssuanceChecklistItem.Id — unique within tenant (standard aggregate root
+  PK).
+
+  Repositories
+
+  - No custom repository interfaces beyond IRepository<LCIssuanceChecklistItem, 
+  Guid> — default ABP generic repository covers all access patterns.
+
+  ---
+  HTTP API Design
+
+  Private endpoints (Backoffice)
+
+  Prefix: /api/private/app/ per CLAUDE.md
+  api_routing_conventions.private_prefix.
+
+  ┌─────┬─────────────────────────┬──────────────────────────────────────────┐
+  │ Met │          Route          │                 Maps to                  │
+  │ hod │                         │                                          │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │     │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ GET │ ettings/checklist-items │ /-/wikis/feats/bank-settings/queries/Get │
+  │     │                         │ ChecklistItemsQuery                      │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │     │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ GET │ ettings/lc-review-check │ /-/wikis/feats/bank-settings/queries/Get │
+  │     │ list                    │ LCReviewChecklistQuery (active items     │
+  │     │                         │ only)                                    │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │     │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ GET │ ettings/checklist-items │ /-/wikis/feats/bank-settings/queries/Get │
+  │     │ /{id}                   │ ChecklistItemByIdQuery                   │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │ POS │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ T   │ ettings/checklist-items │ /-/wikis/feats/bank-settings/commands/Cr │
+  │     │                         │ eateChecklistItemCommand                 │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │     │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ PUT │ ettings/checklist-items │ /-/wikis/feats/bank-settings/commands/Up │
+  │     │ /{id}                   │ dateChecklistItemDescriptionCommand      │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │ PAT │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ CH  │ ettings/checklist-items │ /-/wikis/feats/bank-settings/commands/To │
+  │     │ /{id}/toggle-status     │ ggleChecklistItemStatusCommand           │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │ POS │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ T   │ ettings/checklist-items │ /-/wikis/feats/bank-settings/commands/Re │
+  │     │ /reorder                │ orderChecklistItemsCommand               │
+  ├─────┼─────────────────────────┼──────────────────────────────────────────┤
+  │ DEL │ /api/private/app/bank-s │ http://localhost:8080/root/trade-finance │
+  │ ETE │ ettings/checklist-items │ /-/wikis/feats/bank-settings/commands/De │
+  │     │ /{id}                   │ leteChecklistItemCommand                 │
+  └─────┴─────────────────────────┴──────────────────────────────────────────┘
+
+  Controllers are generated by ABP's conventional registration; no manual
+  controller code required. All endpoints require [Authorize] with appropriate
+  permission checks.
+
+  ---
+  Permissions, Security, and Multi-Tenancy
+
+  Permissions Map
+
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: View checklist items
+  Kind: Query
+  Permission string: TradeFinancePermissions.BankSettings.View
+  ────────────────────────────────────────
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: Create checklist item
+  Kind: Command
+  Permission string: TradeFinancePermissions.BankSettings.Create
+  ────────────────────────────────────────
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: Edit checklist item
+  Kind: Command
+  Permission string: TradeFinancePermissions.BankSettings.Edit
+  ────────────────────────────────────────
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: Toggle checklist item status
+  Kind: Command
+  Permission string: TradeFinancePermissions.BankSettings.Edit
+  ────────────────────────────────────────
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: Reorder checklist items
+  Kind: Command
+  Permission string: TradeFinancePermissions.BankSettings.Edit
+  ────────────────────────────────────────
+  Actor: http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/ac
+  tors/BankAdmin
+  Use case: Delete checklist item
+  Kind: Command
+  Permission string: TradeFinancePermissions.BankSettings.Delete
+
+  Multi-tenancy
+
+  Tenancy model: per-customer (CLAUDE.md). Every LCIssuanceChecklistItem carries
+   TenantId (per IMultiTenant). IDataFilter enforces tenant isolation on all
+  read paths. All queries automatically apply TenantId filter first, ensuring
+  cross-tenant data leakage is impossible.
+
+  ---
+  Integration, Background Jobs, and Distributed Events
+
+  Integrations
+
+  - http://localhost:8080/root/trade-finance/-/wikis/feats/bank-settings/integra
+  tions/AuditIntegration — ABP audit logging captures all checklist item
+  mutations (create, update, delete) with user and timestamp.
+
+  Distributed events
+
+  - ChecklistItemCreated — published after local transaction commits; consumed
+  by UI notification service.
+  - ChecklistItemDeleted — published after local transaction commits; consumed
+  by audit log service.
+  - ChecklistItemStatusToggled — published; consumed by LC review query cache
+  invalidation.
+
+  No background jobs required for this milestone.
+
+  ---
+  UI-API Integration Points
+
+  Screen-to-endpoint map
+
+  ┌────────────────────────┬────────────────────────────────────────────────┐
+  │   Screen / component   │               Endpoint(s) called               │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ BankSettingsChecklistP │ GET                                            │
+  │ age (admin table)      │ /api/private/app/bank-settings/checklist-items │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ LCReviewChecklistWidge │ GET /api/private/app/bank-settings/lc-review-c │
+  │ t (reviewer view,      │ hecklist                                       │
+  │ read-only)             │                                                │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ AddChecklistItemDialog │ POST                                           │
+  │                        │ /api/private/app/bank-settings/checklist-items │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ EditChecklistItemDialo │ PUT /api/private/app/bank-settings/checklist-i │
+  │ g                      │ tems/{id}, GET for pre-population              │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ DeleteChecklistItemCon │ DELETE /api/private/app/bank-settings/checklis │
+  │ firmation              │ t-items/{id}                                   │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ ChecklistItemRow       │ PATCH /api/private/app/bank-settings/checklist │
+  │ (status toggle)        │ -items/{id}/toggle-status                      │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ ChecklistItemRow       │ POST /api/private/app/bank-settings/checklist- │
+  │ (reorder via drag or   │ items/reorder                                  │
+  │ up/down buttons)       │                                                │
+  └────────────────────────┴────────────────────────────────────────────────┘
+
+  DTO field deviations
+
+  UI field: statusBadge (Active/Inactive)
+  Backend source: ChecklistItemStatus (enum)
+  Deviation: Mapped client-side via prototype's badge design system; backend
+    returns camelCase string enum only
+  ────────────────────────────────────────
+  UI field: itemSequence
+  Backend source: SequenceNumber
+  Deviation: Displayed as "S.N." in table; backend returns numeric value
+  ────────────────────────────────────────
+  UI field: description (truncated in table)
+  Backend source: Description
+  Deviation: Table shows ellipsis if > 80 chars; backend returns full 500-char
+    string; dialog displays full description
+
+  Loading and error state backend requirements
+
+  - List queries must return within 1.5s P95 at up to 200 checklist items per
+  tenant; the prototype shows a skeleton loader.
+  - Failed commands return RFC 7807 ProblemDetails so UI can render validation
+  errors next to offending input (e.g., "Description is required").
+  - Reorder operation must be atomic — all sequence numbers recalculated as part
+   of a single transaction.
+  - Create/Update/Delete commands are not idempotent — UI must prevent
+  accidental double-submit via button disable during request.
+
+  Gap analysis
+
+  No missing commands or queries identified. All admin workflows are covered by
+  the 5 commands and 3 queries above. The GetLCReviewChecklistQuery (active
+  items only) serves the read-only reviewer view.
+
+  Prototype reference
+
+  Canonical location: <to be provided by Product Manager — link to design tool 
+  or figma URL>
+
+  ---
+  Error Handling, Auditing, and Logging
+
+  - Domain rule violations (e.g., "Description is empty") throw
+  BusinessException subclasses; ABP translates to 4xx ProblemDetails
+  automatically.
+  - Validation failures from FluentValidation surface as 400 Bad Request with
+  field-level error details.
+  - LCIssuanceChecklistItem uses FullAuditedAggregateRoot<Guid> — creation and
+  modification audit fields (CreatedBy, CreatedOn, LastModifiedBy,
+  LastModifiedOn) populated automatically.
+  - Domain events are recorded in AbpAuditLog via ABP's audit event integration.
+  - Structured logging via Serilog with TenantId and UserId enriched context;
+  all command and query entry/exit points logged at Debug level.
+
+  ---
+  Performance and Scalability
+
+  - Checklist item list query expected to serve 10 concurrent bank admins per
+  tenant; composite index (TenantId, Status, SequenceNumber) supports this
+  without full table scan.
+  - LC review query (active items only) executes frequently during document
+  processing; cached query result is invalidated on any checklist change (via
+  domain event).
+  - No N+1 risks identified — all queries use eager projections via Mapperly.
+  - Sequence recalculation on reorder or delete is O(N) within tenant scope (N =
+   item count, typically < 200); acceptable for this low-frequency operation.
+
+  ---
+  Deployment Considerations
+
+  - Schema change: AppChecklistItems table with indexes on (TenantId, Status,
+  SequenceNumber) and (TenantId, CreatedOn). Standard DbMigrator run covers the
+  migration.
+  - No feature flags required; capability is gated by Role assignment (BankAdmin
+   role).
+  - No message queue bindings or external service calls required for M1.
+
+  ---
+  Open Questions and Future Enhancements
+
+  - Soft-delete vs permanent deletion (blocking) — see Open Blockers section.
+  - Search / filter by description text — out of scope for M1; would require
+  full-text index or Elasticsearch integration.
+  - Bulk reorder via drag-and-drop of multiple items — M2 scope; requires
+  drag-and-drop protocol and multi-item sequence coordination.
+  - Edit history / version control for item descriptions — would require audit
+  detail capture or separate history table.
+  - Import/export checklist template — M3 scope for standardizing checklists
+  across multiple bank branches.
+  - SLA metrics on checklist review completion time — product strategy TBD.
+  - Checklist item templates (e.g., "LC Issuance 2024 Standard") — deferred
+  pending checklist stability.
+  - Collaborative editing locks to prevent concurrent description edits — low
+  priority; current form submit approach acceptable.
+  - Character counter in edit form — UX enhancement; currently just a validation
+   message.
+  - Position insertion (insert new item at specific position, not just append) —
+   open question per FRS-BS-02.
+
+  ---
+  ✓ Phase 8 complete. Feat Spec assembled with all 16 sections (Sections 3 and
+  12 included because blocking Conflict and ui-integration clauses exist).
+
+  ---
+  → Phase 9: Validation — dispatching feat-spec-validator agent
+
+  Validating assembled Feat Spec against critical/high checks: section
+  completeness, no code fences, wiki link correctness, conflict resolution,
+  clause traceability...
+
+✻ Cooked for 14m 6s

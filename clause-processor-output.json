@@ -1,0 +1,589 @@
+{
+  "mappings": [
+    {
+      "iid": 15,
+      "clause_text": "Bank Administrator navigates to the LC Issuance Checklist configuration page to view all configured verification checkpoints",
+      "primary_category": "Query",
+      "proposed_node_name": "GetLcIssuanceChecklistItems",
+      "module": "BankSettings",
+      "source_iid": 15,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 15,
+      "clause_text": "System retrieves all configured checklist items from persistent storage and displays items in a table with columns: S.N, Description, Status, Order, Actions",
+      "primary_category": "Query",
+      "proposed_node_name": "GetLcIssuanceChecklistItems",
+      "module": "BankSettings",
+      "source_iid": 15,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 15,
+      "clause_text": "System establishes real-time subscription to checklist changes and automatically refreshes table when items are added/edited/deleted/toggled/reordered by any administrator",
+      "primary_category": "Integration",
+      "proposed_node_name": "ChecklistChangedEvent",
+      "module": "BankSettings",
+      "source_iid": 15,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 15,
+      "clause_text": "Page loads successfully and awaits user interaction",
+      "primary_category": "Query",
+      "proposed_node_name": "GetLcIssuanceChecklistItems",
+      "module": "BankSettings",
+      "source_iid": 15,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 15,
+      "clause_text": "System displays table with empty state message when no checklist items have been configured",
+      "primary_category": "Query",
+      "proposed_node_name": "GetLcIssuanceChecklistItems",
+      "module": "BankSettings",
+      "source_iid": 15,
+      "source_anchor": "#8a-alternative-flows",
+      "classification": "ui-integration"
+    },
+    {
+      "iid": 16,
+      "clause_text": "Bank Administrator clicks Add Item button on the LC Issuance Checklist page to initiate new item creation",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#6-trigger",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "Administrator enters description in textarea field and clicks Add Item button in dialog",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "System validates description is not empty before creating checklist item",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "System creates checklist item, assigns next sequential serial number (S.N), marks item as active by default, and stores to persistent storage",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "System closes dialog, displays success toast notification, and refreshes checklist display to show new item at end of list",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "Add Item button remains disabled in dialog when description is empty; no error message displayed",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#9a-exception-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 16,
+      "clause_text": "Description field must not be empty or whitespace-only; max length appropriate for display in table",
+      "primary_category": "Command",
+      "proposed_node_name": "CreateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 16,
+      "source_anchor": "#11-form-fields",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "Bank Administrator clicks pencil (edit) icon button next to a checklist item to initiate edit operation",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#6-trigger",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "System loads current description and opens Edit Checklist Item dialog",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "Administrator modifies description text and clicks Save Changes button in dialog",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "System validates description is not empty, updates item with new description in persistent storage, closes dialog, displays success notification, and refreshes display",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "System preserves item S.N, active status, and position during edit; updates are immediate and persist",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "Save Changes button is disabled when description is empty",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#9a-exception-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 17,
+      "clause_text": "Administrator can close dialog without saving by clicking Cancel or X button; item retains previous description",
+      "primary_category": "Command",
+      "proposed_node_name": "UpdateLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 17,
+      "source_anchor": "#8a-alternative-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "Bank Administrator clicks trash can (delete) icon button next to a checklist item to initiate delete operation",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#6-trigger",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "System removes item from persistent storage immediately without confirmation dialog",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "System removes item row from checklist table display and displays confirmation toast notification",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "System updates S.N values of subsequent items if renumbering is required after deletion",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "Deleted items are permanently removed and cannot be recovered; item completely removed from storage and all active checklists immediately",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#15-business-rules",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 18,
+      "clause_text": "System displays \"No checklist items configured\" when all items are deleted",
+      "primary_category": "Command",
+      "proposed_node_name": "DeleteLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 18,
+      "source_anchor": "#9a-exception-flows",
+      "classification": "ui-integration"
+    },
+    {
+      "iid": 19,
+      "clause_text": "Bank Administrator clicks Status toggle switch for a checklist item in the table to initiate status change",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#6-trigger",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "System toggles the item's active status (Active → Inactive or Inactive → Active) when switch is clicked",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "System updates item status in data store immediately and updates toggle switch visual state to reflect new status",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "System displays success toast notification and refreshes the checklist table to reflect the status change",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "System reverts toggle switch to previous state if database error occurs; displays error message",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#9a-exception-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "Only Active checklist items are included in the LC review checklist presented to Branch and CTF teams; inactive items do not appear",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#15-business-rules",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "Toggling an item's status is immediate and does not require additional confirmation",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#15-business-rules",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 19,
+      "clause_text": "System allows deactivating the last active item, resulting in zero active items; checklist may be empty",
+      "primary_category": "Command",
+      "proposed_node_name": "ToggleLcIssuanceChecklistItemStatus",
+      "module": "BankSettings",
+      "source_iid": 19,
+      "source_anchor": "#16-edge-cases",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "Bank Administrator clicks up or down arrow button for a checklist item in the Order column to initiate reordering",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#6-trigger",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System moves item up one position and decrements this item's sequence number by 1 when up arrow is clicked",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System increments the previous item's sequence number by 1 and persists updated sequence numbers to data store",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System moves item down one position and increments this item's sequence number by 1 when down arrow is clicked",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System decrements the next item's sequence number by 1 and persists updated sequence numbers to data store",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System refreshes checklist table to display new order and displays success notification",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#7-main-flow",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "Up arrow button is disabled (grayed out) for the first item (S.N. 1)",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#9a-exception-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "Down arrow button is disabled (grayed out) for the last item in the list",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#9b-exception-flows",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "System automatically renumbers all items to maintain sequential order (1, 2, 3...) after reordering; reordering is atomic",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#15-business-rules",
+      "classification": "ddd-mapped"
+    },
+    {
+      "iid": 20,
+      "clause_text": "Checklist items are always displayed in their current sequence number order to maintain consistency across all LC reviews",
+      "primary_category": "Command",
+      "proposed_node_name": "ReorderLcIssuanceChecklistItem",
+      "module": "BankSettings",
+      "source_iid": 20,
+      "source_anchor": "#15-business-rules",
+      "classification": "ddd-mapped"
+    }
+  ],
+  "ui_integration_clauses": [
+    {
+      "iid": 15,
+      "text": "System displays checklist table with columns: S.N, Description, Status toggle switch, Order buttons (up/down arrows), and Actions (Edit, Delete icons)",
+      "proposed_endpoint": "GET /api/public/bank-settings/lc-issuance-checklist-items",
+      "screen": "LC Issuance Checklist Management Page",
+      "gap_analysis": "Frontend displays table with standard columns; backend must return all required fields (id, description, isActive, sequenceNumber)"
+    },
+    {
+      "iid": 15,
+      "text": "System provides prominent Add Item button at top of page for quick access to create new items",
+      "proposed_endpoint": "GET /api/public/bank-settings/lc-issuance-checklist-items",
+      "screen": "LC Issuance Checklist Management Page",
+      "gap_analysis": "Button is UI control; no backend logic required, but backend must support CreateLcIssuanceChecklistItem endpoint"
+    },
+    {
+      "iid": 16,
+      "text": "Add Checklist Item dialog opens when Add Item button clicked, displaying Description textarea field",
+      "proposed_endpoint": "POST /api/public/bank-settings/lc-issuance-checklist-items",
+      "screen": "Add Checklist Item Dialog",
+      "gap_analysis": "Dialog is UI component; backend must validate Description non-empty and return 400 if empty"
+    },
+    {
+      "iid": 17,
+      "text": "Edit Checklist Item dialog pre-fills Description field with current item's description text when edit icon clicked",
+      "proposed_endpoint": "PUT /api/public/bank-settings/lc-issuance-checklist-items/{id}",
+      "screen": "Edit Checklist Item Dialog",
+      "gap_analysis": "Backend must return current description; frontend pre-fills dialog; backend must validate non-empty Description on update"
+    },
+    {
+      "iid": 18,
+      "text": "Delete operation occurs immediately without confirmation dialog when trash icon clicked",
+      "proposed_endpoint": "DELETE /api/public/bank-settings/lc-issuance-checklist-items/{id}",
+      "screen": "LC Issuance Checklist Table",
+      "gap_analysis": "No confirmation UI; backend must execute immediate hard delete; frontend shows success toast on response"
+    },
+    {
+      "iid": 19,
+      "text": "Status toggle switch displays current state visually (ON for active, OFF for inactive) with immediate visual feedback on click",
+      "proposed_endpoint": "PATCH /api/public/bank-settings/lc-issuance-checklist-items/{id}/toggle-status",
+      "screen": "LC Issuance Checklist Table",
+      "gap_analysis": "UI shows visual toggle state; backend must return updated isActive status; frontend updates toggle appearance immediately"
+    },
+    {
+      "iid": 20,
+      "text": "Arrow buttons in Order column are enabled/disabled based on item position (up arrow disabled for first, down arrow disabled for last)",
+      "proposed_endpoint": "POST /api/public/bank-settings/lc-issuance-checklist-items/{id}/move-up or /move-down",
+      "screen": "LC Issuance Checklist Table",
+      "gap_analysis": "Frontend manages button enable/disable state based on position; backend must validate position constraints and return error if invalid"
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "CONFLICT-01",
+      "title": "Audit Logging for State Mutations",
+      "description": "FRS-LCI-04 and FRS-LCI-05 open questions (items 3 and 3 respectively) ask whether toggle/reorder changes should be logged for audit purposes. No explicit audit requirement specified in business rules, but Compliance Team involvement suggests regulatory concern.",
+      "blocking_severity": "medium",
+      "related_iids": [19, 20],
+      "proposed_resolution": "Adopt uniform audit logging for all state mutations (Toggle, Reorder, Delete), or establish explicit policy of no audit logging. Product Owner and Compliance Team decision required by 2026-05-01.",
+      "source_anchor": "#17-open-questions"
+    },
+    {
+      "id": "CONFLICT-02",
+      "title": "Soft-Delete vs Hard-Delete Semantics",
+      "description": "FRS-LCI-03 Delete Checklist Item specifies immediate hard deletion with no restore capability. Open question 2 asks whether soft-delete (archive) should be available instead. Business rule states deleted items are permanently removed. No soft-delete entity pattern or archival table specified.",
+      "blocking_severity": "medium",
+      "related_iids": [18],
+      "proposed_resolution": "Clarify whether hard delete is sufficient or if soft-delete/archival is required for regulatory compliance. If soft-delete is chosen, add IsDeleted flag to LcIssuanceChecklistItem entity and update all queries to exclude deleted items.",
+      "source_anchor": "#17-open-questions"
+    },
+    {
+      "id": "CONFLICT-03",
+      "title": "Minimum Active Items Requirement",
+      "description": "FRS-LCI-04 Toggle Item Active Status open question 2 asks whether there should be a minimum number of active items required (e.g., at least 1 requirement must be active). Edge case EC-01 and EC-02 allow zero active items (empty checklist state).",
+      "blocking_severity": "low",
+      "related_iids": [19],
+      "proposed_resolution": "Product Owner and Business Owner decision: should system enforce at least 1 active item or allow 0? If enforced, add precondition check in ToggleLcIssuanceChecklistItemStatus command.",
+      "source_anchor": "#17-open-questions"
+    },
+    {
+      "id": "CONFLICT-04",
+      "title": "Concurrent Modification Handling for Reorder",
+      "description": "FRS-LCI-05 Reorder specifies atomic swap of adjacent items with sequential S.N updates. Multiple edge cases (EC-02) mention rapid successive moves. No explicit optimistic locking or version field specified.",
+      "blocking_severity": "low",
+      "related_iids": [20],
+      "proposed_resolution": "Use EF Core optimistic concurrency with RowVersion field on LcIssuanceChecklistItem entity. Implement last-write-wins semantics or implement conflict detection and retry logic.",
+      "source_anchor": "#16-edge-cases"
+    },
+    {
+      "id": "CONFLICT-05",
+      "title": "Notification to Branch/CTF Staff on Status Change",
+      "description": "FRS-LCI-04 Toggle Item Active Status open question 1 asks whether deactivating an item should send notification to Branch/CTF staff. No integration event or notification service specified.",
+      "blocking_severity": "low",
+      "related_iids": [19],
+      "proposed_resolution": "If notification is required, publish domain event ChecklistItemStatusChanged and implement listener to send notifications. Otherwise, silent removal of inactive items is acceptable.",
+      "source_anchor": "#17-open-questions"
+    },
+    {
+      "id": "CONFLICT-06",
+      "title": "Maximum Description Length and Validation",
+      "description": "FRS-LCI-01 and FRS-LCI-02 specify Description field must not be empty or whitespace-only and max length appropriate for display in table. Exact max length not specified; Open question 1 asks what max character length should be.",
+      "blocking_severity": "medium",
+      "related_iids": [16, 17],
+      "proposed_resolution": "Product Owner decision: specify exact max length (e.g., 500 chars, 1000 chars). Implement FluentValidation rule with MaxLength attribute on CreateLcIssuanceChecklistItemDto and UpdateLcIssuanceChecklistItemDto.",
+      "source_anchor": "#17-open-questions"
+    },
+    {
+      "id": "CONFLICT-07",
+      "title": "Per-Tenant Data Scoping",
+      "description": "CLAUDE.md specifies per-customer (per-tenant) tenancy model. FRS documents do not explicitly mention TenantId filtering or tenant isolation. Bank Admin role may be tenant-scoped; confirm tenant filtering in all queries and commands.",
+      "blocking_severity": "high",
+      "related_iids": [15, 16, 17, 18, 19, 20],
+      "proposed_resolution": "All LcIssuanceChecklistItem queries and commands must filter by CurrentTenant.Id. Add TenantId property to entity if not present. Ensure AppService precondition checks enforce tenant isolation.",
+      "source_anchor": "CLAUDE.md context"
+    }
+  ],
+  "module_index": {
+    "BankSettings": {
+      "commands": [
+        "CreateLcIssuanceChecklistItem",
+        "UpdateLcIssuanceChecklistItem",
+        "DeleteLcIssuanceChecklistItem",
+        "ToggleLcIssuanceChecklistItemStatus",
+        "ReorderLcIssuanceChecklistItem"
+      ],
+      "queries": [
+        "GetLcIssuanceChecklistItems"
+      ],
+      "actors": [
+        "BankAdmin"
+      ],
+      "entities": [
+        "LcIssuanceChecklistItem"
+      ],
+      "events": [
+        "ChecklistItemStatusChanged"
+      ]
+    }
+  },
+  "naming_changes": [],
+  "tenancy_summary": {
+    "tenant_scoping": "per-customer (from CLAUDE.md)",
+    "entity_scoping": "LcIssuanceChecklistItem must be scoped to TenantId; all queries and commands filtered by CurrentTenant.Id",
+    "ambiguities": [
+      "FRS documents do not explicitly mention TenantId filtering; assume implicit tenant isolation per CLAUDE.md per-customer model"
+    ]
+  },
+  "stats": {
+    "total_clauses": 47,
+    "ddd_mapped": 40,
+    "ui_integration": 7,
+    "excluded": 0,
+    "unmapped_remaining": 0,
+    "conflicts_detected": 7
+  }
+}

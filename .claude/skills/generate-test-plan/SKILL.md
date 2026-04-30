@@ -1,11 +1,11 @@
 ---
 name: generate-test-plan
-description: "Use when generating a test plan from an FRS document or raw application code — NOT from user stories. Parses the source, extracts testable use cases grouped by category, and creates TC files organized as docs/wiki/test-plans/{feature}/{use-case}/{feature}-TC-NNN.md. FRS input produces placeholder selectors; raw-code input extracts selectors from the code."
+description: "Use when generating a test plan from an FRS document or raw application code — NOT from user stories. Parses the source, extracts testable use cases grouped by category, and creates TC files in the sibling wiki/docs repo at ../docs/test-plans/{feature}/{use-case}/{feature}-TC-NNN.md. FRS input produces placeholder selectors; raw-code input extracts selectors from the code."
 ---
 
 # Generate Test Plan from Source (FRS / Raw Code)
 
-Parses a Functional Requirements Specification (FRS) document **or** raw application source code, extracts testable use cases, and emits individual TC files organized under `docs/wiki/test-plans/{feature}/{use-case}/`. Each use case category (display, add, edit, delete, etc.) gets its own sub-folder. Each TC within a sub-folder covers one flow variant — happy path, validation, edge case, etc.
+Parses a Functional Requirements Specification (FRS) document **or** raw application source code, extracts testable use cases, and emits individual TC files into the **sibling docs/wiki repo** under `../docs/test-plans/{feature}/{use-case}/`. Each use case category (display, add, edit, delete, etc.) gets its own sub-folder. Each TC within a sub-folder covers one flow variant — happy path, validation, edge case, etc.
 
 | Input type | Selector behaviour |
 |---|---|
@@ -18,10 +18,25 @@ Do NOT invent selectors when the input is an FRS. Every step selector MUST be `(
 
 ---
 
+## Workspace Layout Assumption
+
+This skill assumes a multi-repo workspace where the docs/wiki repo is a **sibling** of the UI and API repos:
+
+```
+workspace/
+  ui/        ← frontend repo (skill may be run from here)
+  api/       ← backend repo (skill may be run from here)
+  docs/      ← wiki / knowledge repo (TC files land here)
+```
+
+All TC paths in this skill are written **relative to the repo the skill is invoked from**, using `../docs/test-plans/...`. If the workspace layout differs, ask the user for the correct path to the docs/wiki repo before emitting any files.
+
+---
+
 ## Directory Structure
 
 ```
-docs/wiki/test-plans/
+../docs/test-plans/
   {feature}/
     {use-case-a}/
       {feature}-TC-001.md     ← happy path
@@ -34,7 +49,7 @@ docs/wiki/test-plans/
 
 **Concrete example:**
 ```
-docs/wiki/test-plans/
+../docs/test-plans/
   checklist/
     display/
       checklist-TC-001.md     ← Display items (Happy Path)
@@ -108,7 +123,7 @@ docs/wiki/test-plans/
 
 ## Overview
 
-Use this skill when the user provides an FRS document (`.md`, `.docx`, `.pdf`, or pasted text) or source code files / a directory and asks for a test plan. The skill produces individual TC files organized by feature and use case category in the docs wiki.
+Use this skill when the user provides an FRS document (`.md`, `.docx`, `.pdf`, or pasted text) or source code files / a directory and asks for a test plan. The skill produces individual TC files in the **sibling docs/wiki repo**, organized by feature and use case category.
 
 **Core principle:** One flow variant = one TC file. One use case category = one sub-folder. Never mix unrelated actions in a single TC.
 
@@ -138,15 +153,16 @@ When reading an FRS that says *"User clicks the Save button"*, it is tempting to
 
 You MUST complete these in order:
 
-1. **Classify input** — determine FRS, raw code, or mixed
-2. **Identify feature name** — derive the kebab-case feature name
-3. **Extract testable requirements** — parse the source into a requirements list
-4. **Identify use case categories** — determine the sub-folders (display, add, edit, delete, etc.)
-5. **Group into TCs per category** — one TC per flow variant within each category
-6. **Derive steps per TC** — write Step / Selector / Expected Result rows
-7. **Resolve selectors (code input only)** — scan source for `data-testid`, `id`, `name`, `aria-label`
-8. **Emit TC files** — create each file under the correct sub-folder
-9. **Print summary** — show a table grouped by use case
+1. **Verify workspace layout** — confirm `../docs/` exists as the sibling docs/wiki repo
+2. **Classify input** — determine FRS, raw code, or mixed
+3. **Identify feature name** — derive the kebab-case feature name
+4. **Extract testable requirements** — parse the source into a requirements list
+5. **Identify use case categories** — determine the sub-folders (display, add, edit, delete, etc.)
+6. **Group into TCs per category** — one TC per flow variant within each category
+7. **Derive steps per TC** — write Step / Selector / Expected Result rows
+8. **Resolve selectors (code input only)** — scan source for `data-testid`, `id`, `name`, `aria-label`
+9. **Emit TC files** — create each file under the correct sub-folder in `../docs/test-plans/`
+10. **Print summary** — show a table grouped by use case
 
 ---
 
@@ -156,6 +172,7 @@ You MUST complete these in order:
 digraph process {
     rankdir=TB;
 
+    verify_ws [label="Verify ../docs/\nsibling repo exists" shape=diamond];
     classify [label="Classify input\n(FRS / code / mixed)" shape=diamond];
     extract_frs [label="Extract requirements\nfrom FRS" shape=box];
     extract_code [label="Extract requirements\n+ selectors from code" shape=box];
@@ -165,9 +182,10 @@ digraph process {
     steps [label="Derive steps\nper TC" shape=box];
     selectors [label="Resolve selectors\nfrom code" shape=box];
     skip_sel [label="All selectors =\n(discovered by explorer)" shape=box];
-    emit [label="Emit TC files under\ndocs/wiki/test-plans/{feature}/{use-case}/" shape=box];
+    emit [label="Emit TC files under\n../docs/test-plans/{feature}/{use-case}/" shape=box];
     summary [label="Print summary table" shape=doublecircle];
 
+    verify_ws -> classify;
     classify -> extract_frs [label="FRS"];
     classify -> extract_code [label="code"];
     classify -> extract_mixed [label="mixed"];
@@ -188,7 +206,15 @@ digraph process {
 
 ## The Process
 
-### Step 1: Classify Input
+### Step 1: Verify Workspace Layout
+
+- Confirm that `../docs/` exists relative to the current working directory and is the docs/wiki repo.
+- If the layout differs (e.g. docs repo is at a different path, or the user runs from the workspace root), **ask the user for the correct path** before continuing.
+- Record the resolved base path (default: `../docs/test-plans/`) and use it for all subsequent file operations.
+- **Verify:** The base path is writable and the directory exists or can be created.
+- **On failure:** Stop and ask the user where the docs/wiki repo lives.
+
+### Step 2: Classify Input
 
 - Document (FRS, SRS, requirements doc): mode = `frs`
 - Source code files or directory: mode = `code`
@@ -196,7 +222,7 @@ digraph process {
 - **Verify:** You can name the mode and list every input file/section.
 - **On failure:** Ask the user to clarify what they provided.
 
-### Step 2: Identify Feature Name
+### Step 3: Identify Feature Name
 
 - Derive a kebab-case feature name from the FRS title, module name, or dominant component name.
   - FRS "Service Type Management" → `service-type`
@@ -204,7 +230,7 @@ digraph process {
 - **Verify:** Feature name is kebab-case, module title is human-readable.
 - **On failure:** Ask the user to confirm.
 
-### Step 3: Extract Testable Requirements
+### Step 4: Extract Testable Requirements
 
 **From FRS:**
 - Scan for requirement identifiers (REQ-001, FR-01, SHALL/MUST statements).
@@ -225,7 +251,7 @@ digraph process {
 - **Verify:** You have a numbered list of atomic requirements.
 - **On failure:** List what you found and ask the user to confirm scope.
 
-### Step 4: Identify Use Case Categories
+### Step 5: Identify Use Case Categories
 
 Map requirements to use case categories. Each category becomes a sub-folder:
 
@@ -247,7 +273,7 @@ Only create sub-folders for categories that have at least one TC. Don't create e
 - **Verify:** Every requirement maps to a category. No category has zero TCs.
 - **On failure:** Merge sparse categories or ask the user.
 
-### Step 5: Group TCs per Category
+### Step 6: Group TCs per Category
 
 Within each category sub-folder, create separate TCs for each flow variant:
 
@@ -261,7 +287,7 @@ Assign scenario letters sequentially across the entire feature (A, B, C…), not
 - **Verify:** Each category has at least a happy path TC. No TC exceeds 10 steps.
 - **On failure:** Split large TCs; ensure every category has coverage.
 
-### Step 6: Derive Steps per TC
+### Step 7: Derive Steps per TC
 
 Write steps in the table format:
 
@@ -278,7 +304,7 @@ Rules:
 - Assertions can be their own step: `Verify {element} displays {state}`
 - 2–10 steps per TC. If more, split.
 
-### Step 7: Resolve Selectors (code and mixed modes only)
+### Step 8: Resolve Selectors (code and mixed modes only)
 
 Scan source files in this priority order:
 
@@ -297,19 +323,19 @@ Scan source files in this priority order:
 - **Verify:** Each resolved selector appears literally in the source code.
 - **On failure:** Fall back to `(discovered by explorer)`.
 
-### Step 8: Emit TC Files
+### Step 9: Emit TC Files
 
 For each TC:
 
-- Create directory: `docs/wiki/test-plans/{feature}/{use-case}/` if it doesn't exist.
-- Create file: `docs/wiki/test-plans/{feature}/{use-case}/{feature}-TC-{NNN}.md`
+- Create directory: `../docs/test-plans/{feature}/{use-case}/` if it doesn't exist.
+- Create file: `../docs/test-plans/{feature}/{use-case}/{feature}-TC-{NNN}.md`
 - TC numbers are sequential across the entire feature (not per sub-folder).
 - Before creating, check if the file already exists. If it does, skip and warn.
 
 - **Verify:** Each file exists, format matches the TC template, all sections present (header, Steps, Preconditions, Postconditions).
 - **On failure:** Fix the malformed TC before moving to the next.
 
-### Step 9: Print Summary
+### Step 10: Print Summary
 
 Print a grouped summary table:
 
@@ -317,6 +343,7 @@ Print a grouped summary table:
 ## Test Plan Summary: {Feature Name}
 
 **Total TCs:** {N} | **Selectors resolved:** {M}/{total}
+**Output:** `../docs/test-plans/{feature}/`
 
 ### display/
 | TC | Title | Priority | Selectors |
@@ -335,7 +362,7 @@ Print a grouped summary table:
 |----|-------|----------|-----------|
 | TC-005 | Delete Item (Happy Path) | High | 2/4 from code |
 
-📂 docs/wiki/test-plans/{feature}/
+📂 ../docs/test-plans/{feature}/
 ```
 
 ---
@@ -344,15 +371,15 @@ Print a grouped summary table:
 
 ### `createTC(feature, use_case, tc_number, tc_content)`
 
-Create `docs/wiki/test-plans/{feature}/{use_case}/{feature}-TC-{NNN}.md`. Create directories if needed. Check if file exists first.
+Create `../docs/test-plans/{feature}/{use_case}/{feature}-TC-{NNN}.md`. Create directories if needed. Check if file exists first.
 
 ### `updateSelector(feature, use_case, tc_number, step_number, selector)`
 
-Update the Selector cell of a specific step row. Leave all other cells untouched.
+Update the Selector cell of a specific step row in `../docs/test-plans/{feature}/{use_case}/{feature}-TC-{NNN}.md`. Leave all other cells untouched.
 
 ### `readTC(feature, use_case, tc_number)`
 
-Read and parse a single TC file. Return:
+Read and parse a single TC file from `../docs/test-plans/{feature}/{use_case}/{feature}-TC-{NNN}.md`. Return:
 ```json
 {
   "feature": "checklist",
@@ -370,7 +397,7 @@ Read and parse a single TC file. Return:
 
 ### `listAll(feature)`
 
-Scan `docs/wiki/test-plans/{feature}/` recursively. Return all TCs grouped by use case sub-folder.
+Scan `../docs/test-plans/{feature}/` recursively. Return all TCs grouped by use case sub-folder.
 
 ---
 
@@ -394,8 +421,8 @@ Scan `docs/wiki/test-plans/{feature}/` recursively. Return all TCs grouped by us
 **❌ Creating empty sub-folders for categories with no TCs**
 **✅ Only create sub-folders that contain at least one TC file.**
 
-**❌ Writing to `plans/` or root-level wiki path**
-**✅ All TC files live under `docs/wiki/test-plans/{feature}/{use-case}/`.**
+**❌ Writing TC files inside the UI or API repo** — e.g. `ui/docs/test-plans/...` or `api/test-plans/...`.
+**✅ All TC files live in the sibling docs/wiki repo at `../docs/test-plans/{feature}/{use-case}/`.**
 
 **❌ Missing Preconditions or Postconditions sections**
 **✅ Every TC must have both — even if the precondition is just "User is logged in".**
@@ -404,19 +431,20 @@ Scan `docs/wiki/test-plans/{feature}/` recursively. Return all TCs grouped by us
 
 ## Example
 
-**Scenario:** User provides `BankSettingsChecklist.tsx` (with `data-testid` attributes) and asks for a test plan.
+**Scenario:** User provides `BankSettingsChecklist.tsx` (with `data-testid` attributes) from the `ui/` repo and asks for a test plan. The skill is invoked from inside `ui/`.
 
 **Action taken:**
-1. Classified as `code`.
-2. Feature: `checklist`.
-3. Extracted: table rendering, add dialog, edit dialog, delete action, toggle switch, reorder buttons, empty state, validation (empty description).
-4. Identified 6 use case categories: `display`, `add`, `edit`, `delete`, `toggle`, `reorder`.
-5. Grouped into 8 TCs across the 6 categories.
-6. Resolved 22/28 selectors from `data-testid`; 6 left as `(discovered by explorer)` or template notation.
-7. Created TC files:
+1. Verified `../docs/` exists as the sibling wiki repo.
+2. Classified as `code`.
+3. Feature: `checklist`.
+4. Extracted: table rendering, add dialog, edit dialog, delete action, toggle switch, reorder buttons, empty state, validation (empty description).
+5. Identified 6 use case categories: `display`, `add`, `edit`, `delete`, `toggle`, `reorder`.
+6. Grouped into 8 TCs across the 6 categories.
+7. Resolved 22/28 selectors from `data-testid`; 6 left as `(discovered by explorer)` or template notation.
+8. Created TC files:
 
 ```
-docs/wiki/test-plans/checklist/
+../docs/test-plans/checklist/
   display/
     checklist-TC-001.md   ← Display Items (Happy Path)
     checklist-TC-002.md   ← Display Empty State (Edge Case)
@@ -433,18 +461,18 @@ docs/wiki/test-plans/checklist/
     checklist-TC-008.md   ← Reorder Items Up/Down (Happy Path)
 ```
 
-8. Summary: 8 TCs across 6 sub-folders, 22/28 selectors from code.
+9. Summary: 8 TCs across 6 sub-folders, 22/28 selectors from code.
 
 ---
 
 ## Key Principles
 
+- **TC files live in the sibling docs/wiki repo** — `../docs/test-plans/...`, never inside the UI or API repo.
 - **One flow variant = one TC file** — happy path, validation, and edge case each get their own file.
 - **One use case category = one sub-folder** — all TCs for "delete" live under `delete/`.
 - **Sequential numbering across the feature** — TC-001 through TC-NNN, never resetting per sub-folder.
 - **Selector honesty** — placeholder or template notation is always better than a guess.
 - **Never overwrite** — check if TC file exists before creating; skip and warn if it does.
-- **Wiki-first** — test plans live in `docs/wiki/test-plans/` alongside other project documentation.
 - **Complete sections** — every TC must include header, Steps table, Preconditions, and Postconditions.
 
 ---
@@ -458,8 +486,9 @@ docs/wiki/test-plans/checklist/
 - Emit more than 10 steps in a single TC — split into a new TC
 - Skip Preconditions or Postconditions — both are mandatory
 - Use positional CSS selectors
-- Write TC files outside `docs/wiki/test-plans/{feature}/{use-case}/`
+- Write TC files outside `../docs/test-plans/{feature}/{use-case}/` (i.e. inside the UI or API repo)
 - Reset TC numbering per sub-folder
+- Proceed without confirming the docs/wiki repo path if the workspace layout is unclear
 
 **If the FRS is ambiguous:**
 - List the ambiguous requirements explicitly
@@ -470,10 +499,14 @@ docs/wiki/test-plans/checklist/
 - Ask if the user wants API-level test plans instead
 - Do not force UI-style TCs onto non-UI code
 
+**If `../docs/` does not exist:**
+- Stop and ask the user where the docs/wiki repo lives in their workspace
+- Do not silently fall back to writing inside the current repo
+
 ---
 
 ## Integration
 
-**Required before:** Input files must be accessible (uploaded or path provided).
+**Required before:** Input files must be accessible (uploaded or path provided). The sibling `../docs/` repo must exist and be writable.
 **Required after:** Explorer skill for resolving `(discovered by explorer)` selectors against live DOM.
 **Alternative workflow:** `skill:generate-test-plan-from-stories` — when input is user stories instead of FRS/code.

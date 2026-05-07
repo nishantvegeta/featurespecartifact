@@ -16,6 +16,9 @@ None. Reads body handles from `scratch_dir`.
 
 ```
 {
+  "phase_id": "phase-3",
+  "consumes_phase_id": "phase-2",
+  "consumes_secondary_phase_ids": [],
   "non_halted_issues": [
     {
       "iid": <int>,
@@ -34,6 +37,8 @@ None. Reads body handles from `scratch_dir`.
   "gitlab_base_url": "<url>"
 }
 ```
+
+If `consumes_phase_id != "phase-2"`, halt per the Phase Envelope Contract in SKILL.md.
 
 ## Responsibility
 
@@ -74,6 +79,8 @@ None. Reads body handles from `scratch_dir`.
 
 ```
 {
+  "phase_id": "phase-3",
+  "produced_by": "clause-normalizer",
   "clauses": [
     {
       "clause_key": "<stable internal key; NOT surfaced in published output>",

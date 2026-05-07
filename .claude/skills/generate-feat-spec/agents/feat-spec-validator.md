@@ -16,6 +16,9 @@ None.
 
 ```
 {
+  "phase_id": "phase-9",
+  "consumes_phase_id": "phase-8",
+  "consumes_secondary_phase_ids": [],
   "feat_spec_markdown": "<assembled Feat Spec from Phase 8>",
   "node_entries": { ... full envelope from ddd-synthesizer ... },
   "permissions_map": [ ... merged ... ],
@@ -42,6 +45,8 @@ None.
   "coordination_issue_body": "<planned body>"
 }
 ```
+
+If `consumes_phase_id != "phase-8"`, halt per the Phase Envelope Contract in SKILL.md.
 
 ## Responsibility
 
@@ -170,12 +175,30 @@ For each node type, these fields must exist:
 
 Missing any required field → severity: high, repair_hint: "add missing field <n>".
 
+### Wiki path compliance checks
+
+The canonical rule set is `references/path-contract.md`. This category enforces it mechanically.
+
+| Check | Severity |
+|---|---|
+| Every `expected_file_paths` entry passes `path-contract.md` § 2 regex set (F1–F5) | critical |
+| No `expected_file_paths` entry matches F1 (DDD node nested under `feats/<slug>/`) | critical |
+| No `expected_file_paths` entry matches F2 (DDD node nested under `feat-specs/<slug>/`) | critical |
+| No `expected_file_paths` entry matches F3 (Feat Spec at non-canonical location) | critical |
+| No Conflict file path matches F4 (internal-ID filename) | critical |
+| No `expected_file_paths` entry matches F5 (absolute path) | critical |
+| Every Feat Spec body must declare exactly one path under `feat-specs/<slug>/feat-spec.md` | critical |
+| Every node listed in `node_entries` produces a `filepath` that matches the Allowed grammar in path-contract.md § 1 | critical |
+
+`location` for any defect in this category MUST be the offending filepath. `repair_hint` MUST be `"recompute filepath per path-contract.md § 1; current path violates F<n>"`.
+
 ### Wiki link format checks
 
 | Check | Severity |
 |---|---|
-| No rendered link contains `.md` extension | critical |
-| No rendered link contains the `wiki_local_path` prefix (e.g., `docs/`) in its URL path | critical |
+| No rendered link in `feat_spec_markdown` matches `path-contract.md` § 2 L1 (contains `.md`) | critical |
+| No rendered link matches L2 (contains the `wiki_local_path` prefix in its URL path) | critical |
+| No rendered link matches L3 (uses the nested `feats?/<slug>/<node-type>/` form) | critical |
 | Every wiki link uses `wiki_url` as the base | high |
 | Link labels are human-readable (node name or title), not URL-as-label, not `docs/...` path-as-label | high |
 | GitLab coordination issue body's canonical spec link uses full `wiki_url` with no `.md` | critical |
@@ -212,6 +235,8 @@ Missing any required field → severity: high, repair_hint: "add missing field <
 
 ```
 {
+  "phase_id": "phase-9",
+  "produced_by": "feat-spec-validator",
   "passed": bool,
   "defect_count_by_severity": {
     "critical": <int>,
@@ -222,7 +247,7 @@ Missing any required field → severity: high, repair_hint: "add missing field <
   "defects": [
     {
       "check": "<check name>",
-      "category": "structural|content_purity|abp_compliance|project_convention|section_completeness|ui_api_integration|byte_length|required_field|wiki_link_format|source_field_format|coord_issue|frs_integrity",
+      "category": "structural|content_purity|abp_compliance|project_convention|section_completeness|ui_api_integration|byte_length|required_field|wiki_path_compliance|wiki_link_format|source_field_format|coord_issue|frs_integrity",
       "severity": "critical|high|medium|low",
       "location": "<filepath or section reference>",
       "detail": "<what failed>",
@@ -230,6 +255,26 @@ Missing any required field → severity: high, repair_hint: "add missing field <
     }
   ],
   "readiness": "previewable|needs_repair",
+  "path_compliance_summary": {
+    "paths_checked": <int>,
+    "rendered_links_checked": <int>,
+    "violations_by_rule": {
+      "F1": <int>, "F2": <int>, "F3": <int>, "F4": <int>, "F5": <int>,
+      "L1": <int>, "L2": <int>, "L3": <int>
+    }
+  },
+  "path_regex_set": {
+    "F1": "<F1 regex source string, ready for re.compile>",
+    "F2": "<F2 regex source string, ready for re.compile>",
+    "F3": "<F3 regex source string, ready for re.compile>",
+    "F4": "<F4 regex source string, ready for re.compile>",
+    "F5": "<F5 regex source string, ready for re.compile>"
+  },
+  "link_regex_set": {
+    "L1": "<L1 regex source string, ready for re.compile>",
+    "L2": "<L2 regex source string with wiki_local_path already substituted and re.escape'd, ready for re.compile>",
+    "L3": "<L3 regex source string, ready for re.compile>"
+  },
   "convention_usage_summary": {
     "validation_library": "FluentValidation",
     "object_mapping_library": "Mapperly",
@@ -248,6 +293,7 @@ Missing any required field → severity: high, repair_hint: "add missing field <
 - After repair, re-dispatch until `passed: true`.
 - Medium and low defects do not block the preview but are reported for transparency.
 - Project convention compliance defects are high or critical by default — CLAUDE.md conventions are not optional once declared.
+- **Regex set publication.** The validator is the canonical compiler of the path/link regex set per `references/path-contract.md` § 1 (regex flavor) and § 2 (patterns). It publishes the compiled patterns on the output envelope as `path_regex_set` and `link_regex_set`. `wiki_local_path` substitution into L2 happens here, exactly once per run, with `re.escape` applied to the normalized value. Phase 10.5 and any other downstream consumer reuse these patterns verbatim — they MUST NOT independently re-compile.
 
 ## Main agent uses this output to
 

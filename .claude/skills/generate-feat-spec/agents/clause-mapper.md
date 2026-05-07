@@ -18,6 +18,9 @@ None.
 
 ```
 {
+  "phase_id": "phase-6",
+  "consumes_phase_id": "phase-5",
+  "consumes_secondary_phase_ids": ["phase-3"],
   "clauses": [
     {
       "clause_key": "<key>",
@@ -45,6 +48,8 @@ None.
 
 The `mapping_rule_table` is passed from SKILL.md's Phase 6 table.
 
+If `consumes_phase_id != "phase-5"` OR `consumes_secondary_phase_ids` does not contain `"phase-3"`, halt per the Phase Envelope Contract in SKILL.md. Phase 5's module assignments are the primary gating input; the clause text itself comes from the phase-3 envelope (`clause-normalizer`) and is required as a secondary upstream so the halt rule catches a dispatcher that forwards stale phase-3 content.
+
 ## Responsibility
 
 1. For each clause, evaluate the rule table top-to-bottom. First match wins.
@@ -66,6 +71,8 @@ The `mapping_rule_table` is passed from SKILL.md's Phase 6 table.
 
 ```
 {
+  "phase_id": "phase-6",
+  "produced_by": "clause-mapper",
   "mappings": [
     {
       "clause_key": "<key>",

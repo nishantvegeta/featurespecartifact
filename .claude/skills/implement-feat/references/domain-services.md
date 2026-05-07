@@ -1,81 +1,83 @@
-# Domain Services — When and How
+# Domain Services
 
-A Domain Service is a stateless, domain-layer class that coordinates operations across multiple aggregates. It is NOT a catch-all for AppService logic.
+When an operation needs more than one aggregate, queries the repository, or coordinates with infrastructure ports, it belongs in a Domain Service — NOT in an aggregate method, NOT in an AppService.
 
-## When MANDATORY
+## When mandatory
 
-Create a Domain Service when any condition is true:
+A Domain Service is required when ANY of these hold:
 
-1. **Multi-aggregate state change.** Command changes ≥2 aggregates atomically.
-2. **Reorder / ranking across siblings.** Touches ≥2 sibling entities' ordering fields.
-3. **Cross-aggregate calculation.** Computes value from data across aggregates.
-4. **External-system validation.** Must check external system before mutation.
-5. **Business rule reused by ≥2 Commands.**
+1. **Cross-aggregate work.** Operation reads or modifies more than one aggregate root in a single business action.
+2. **Repository query for invariant.** Invariant requires querying the database (e.g., uniqueness check, balance lookup).
+3. **External port involvement.** Operation calls an integration interface (`I<X>Port`) defined in Domain.
+4. **Polymorphic strategy.** Operation chooses behaviour based on type/state across aggregates (e.g., dispatch to specific handler).
+5. **Saga-like sequencing.** Operation involves ordered steps with rollback semantics.
 
-If none apply, do NOT create one. Simple single-aggregate logic lives on the aggregate, called directly by AppService.
+If NONE of these hold, the logic belongs in the aggregate's mutator method instead.
 
-## When FORBIDDEN
+## What Domain Services NEVER do
 
-Transaction management (ABP UoW handles), HTTP invocations (use Integration port), persistence mechanics (use `IRepository<T>`), event publishing, reading DTOs, authorization.
+- Publish events (gate 2 — Domain layer never references `ILocalEventBus`/`IDistributedEventBus`)
+- Apply HTTP-layer concerns (authorization, request/response shaping)
+- Apply localization (throw `BusinessException(<key>)` instead — middleware translates)
+- Talk to `DbContext` directly (use `IRepository<TEntity, TKey>`)
+- Replace AppService — DomainService is invoked by AppService, never by HTTP
 
-## Class Skeleton
+## File layout
+
+`<Ns>.Domain/<Feature>/<Feature>DomainService.cs`. Namespace `<Ns>.<Feature>`.
 
 ```csharp
-namespace <Ns>.<Feature>.DomainServices;
+namespace <Ns>.<Feature>;
 
 public class <Feature>DomainService : DomainService
 {
-    private readonly IRepository<<Root1>, Guid> _root1Repository;
-    private readonly IRepository<<Root2>, Guid> _root2Repository;
+    private readonly IRepository<<Root>, Guid> _repository;
+    private readonly IRepository<<OtherRoot>, Guid> _otherRepository;
+    private readonly I<X>Port _xPort;
 
     public <Feature>DomainService(
-        IRepository<<Root1>, Guid> root1Repository,
-        IRepository<<Root2>, Guid> root2Repository)
+        IRepository<<Root>, Guid> repository,
+        IRepository<<OtherRoot>, Guid> otherRepository,
+        I<X>Port xPort)
     {
-        _root1Repository = root1Repository;
-        _root2Repository = root2Repository;
+        _repository = repository;
+        _otherRepository = otherRepository;
+        _xPort = xPort;
     }
 
-    // No tenantId parameter — ABP handles tenant scope automatically (CRC-D1)
-    public async Task<<Root1>> ApproveWithDisbursementAsync(Guid applicationId, Guid approverId)
+    // No tenantId parameter — ABP handles via ICurrentTenant scope (CRC-D1)
+    public async Task<<Root>> ApproveAsync(Guid id, Guid approverId)
     {
-        var app = await _root1Repository.GetAsync(applicationId);
-        var disb = await _root2Repository.FindAsync(d => d.ApplicationId == applicationId)
-            ?? throw new BusinessException(<Feature>Constants.ErrorMessages.DisbursementMissing);
+        var root = await _repository.GetAsync(id);
 
-        app.Approve(approverId);
-        disb.Schedule(DateTime.UtcNow.AddDays(2));
+        // Cross-aggregate read
+        var quota = await _otherRepository.FirstOrDefaultAsync(q => q.UserId == approverId);
+        if (quota == null || quota.Remaining <= 0)
+            throw new BusinessException(<Feature>Constants.ErrorMessages.QuotaExceeded);
 
-        await _root1Repository.UpdateAsync(app);
-        await _root2Repository.UpdateAsync(disb);
+        root.Approve(approverId);    // aggregate method runs invariants
+        quota.Decrement();
 
-        return app;
+        await _repository.UpdateAsync(root, autoSave: true);
+        await _otherRepository.UpdateAsync(quota, autoSave: true);
+
+        return root;
     }
 }
 ```
 
-## Method Contract
+## Conventions
 
-- Public async methods, one per orchestration operation.
-- **No tenantId parameter** — ABP's `ICurrentTenant` scope handles tenant filtering automatically.
-- Load aggregates via repository. Call aggregate domain methods to mutate. Persist via repository.
-- Return primary aggregate for AppService to map to DTO.
-- Throw `BusinessException` with FS-sourced error codes on failure.
+- Inherit `Volo.Abp.Domain.Services.DomainService` (provides `Logger`, `Clock`, `CurrentTenant`).
+- Method names match Command name on FS, suffixed `Async`.
+- Return the modified aggregate (or `Task` for void operations).
+- `autoSave: true` on the final write of a multi-aggregate sequence (preserves transactional boundary).
 
-## AppService-to-Service Pattern
+## Anti-patterns
 
-AppService: `[Authorize]` → delegate to `_service.ApproveWithDisbursementAsync(id, CurrentUser.Id.Value)` → map returned aggregate to DTO → return.
-
-AppService does not orchestrate. Service does not authorize.
-
-## Input/Output Types
-
-Inputs: primitives or Value Objects — never DTOs. Outputs: aggregates or primitives — never DTOs. DTO mapping in AppService via Mapperly.
-
-## DI Registration
-
-Domain Services registered by ABP convention via `DomainService` base. Generator adds explicit `AddScoped` for visibility and test overrides.
-
-## Anti-pattern
-
-"Helper" services with grab-bag methods that don't meet mandatory criteria = God object. Refuse to create. Decompose into aggregate methods or distinct services.
+- DomainService that only delegates to one aggregate method (collapse to AppService → aggregate)
+- DomainService publishing events (gate 2)
+- DomainService injecting `IStringLocalizer` (use exception keys; middleware translates)
+- DomainService accepting `tenantId` parameter (CRC-D1 — ABP handles tenancy)
+- DomainService calling another DomainService (flatten — single owner of cross-aggregate logic per feature)
+- DomainService that returns DTO (return aggregate; AppService maps)

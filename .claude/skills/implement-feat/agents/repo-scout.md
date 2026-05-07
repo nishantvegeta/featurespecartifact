@@ -7,298 +7,101 @@ parallel: yes (per project)
 
 # Repo Scout
 
-## Purpose
+Two responsibilities, one read-only pass:
 
-Two responsibilities, one read-only pass over the solution:
+1. **Scaffolding check.** Verify 6 ABP projects, 5 module classes, DbContext calling `ApplyConfigurationsFromAssembly`. Halt the skill if malformed.
+2. **Candidate catalog.** Index existing artifacts that might satisfy the FS — DTOs, entities, AppServices, validators, mappers, permissions, enums, localization, BG workers, hosted services, hubs, event handlers, CLI commands, EF configs.
 
-1. **Scaffolding check.** Verify the solution has the 6 ABP projects, 5 module classes, and a DbContext that calls `ApplyConfigurationsFromAssembly`. Halts the skill if any are missing — the planner cannot synthesize against a malformed solution.
+Read-only. Never writes, builds, asks. Runs parallel with `fs-loader`.
 
-2. **Candidate catalog.** Enumerate every project in the solution and index existing artifacts that might satisfy the Feat Spec — DTOs, entities, AppServices, validators, mappers, permission constants, enums, localization keys, background workers, hosted services, hubs, event handlers, CLI commands, EF configurations.
+References: `abp-base-classes.md` (entity fingerprinting), `abp-built-in-entities.md` (skip ABP-shipped types).
 
-The reconciler consumes both outputs.
+## Input
 
-This sub-agent is read-only. Never writes, never builds, never calls `AskUserQuestion`.
-
-Runs in parallel with `fs-loader` during Phase 1.
-
-## Reference files
-
-- `references/abp-base-classes.md` — when fingerprinting entity candidates, classify base class against the ABP hierarchy table.
-- `references/abp-built-in-entities.md` — skip ABP-shipped types (Identity, Tenant, Setting, etc.) when building the candidate index.
-
-## Input envelope
-
-```
-{
-  src_path: string,
-  solution_file: string | null,         // first *.sln if null
-  project_root_namespace: string,
-  module_project_layout: {              // null → use ABP defaults
-    domain, domain_shared, application_contracts,
-    application, entity_framework_core, http_api_host
-  } | null,
-  auxiliary_projects: [string],         // declared extras (Worker, Hubs, Cli, Integrations)
-  claude_md_contract: {
-    tenancy_model: string | null,
-    validation_library, object_mapping_library,
-    background_job_library, hosted_service_pattern,
-    realtime_library, event_bus_library, cli_host_project
-  },
-  feature: {slug: string, pascal: string}
-}
-```
+`{ src_path, solution_file?, project_root_namespace, module_project_layout?, auxiliary_projects[], claude_md_contract, feature {slug, pascal} }`
 
 ## Tools
 
-- Filesystem read.
-- `dotnet sln list` (read-only).
+Filesystem read; `dotnet sln list`.
 
-## Procedure
+## Step 1 — Enumerate projects
 
-### Step 1 — Enumerate projects
-
-1. Resolve `.sln` via `solution_file` or first match under `src_path`.
-2. `dotnet sln <path> list` to enumerate `.csproj`.
-3. Merge with declared `auxiliary_projects`.
-4. Classify each project by suffix:
+Resolve `.sln` (declared or first under `src_path`) → `dotnet sln list` → merge with declared `auxiliary_projects` → classify by suffix:
 
 | Suffix | Kind |
 |---|---|
-| `*.Domain` | `domain` |
-| `*.Domain.Shared` | `domain-shared` |
-| `*.Application.Contracts` | `application-contracts` |
-| `*.Application` | `application` |
-| `*.EntityFrameworkCore` | `efcore` |
-| `*.HttpApi` / `*.HttpApi.Host` / `*.HttpApi.Client` | `http-api` |
-| `*.Worker` / `*.BackgroundJobs` / `*.Jobs` | `worker` |
-| `*.Hubs` / `*.RealTime` | `hubs` |
-| `*.Integrations` / `*.Adapters` / `*.Connectors.*` | `integrations` |
-| `*.Cli` / `*.Console` / `*.Tool` | `cli` |
-| anything else | `other` |
+| `*.Domain` / `.Domain.Shared` / `.Application.Contracts` / `.Application` / `.EntityFrameworkCore` | matching ABP layer |
+| `*.HttpApi*` | `http-api` |
+| `*.Worker` / `.BackgroundJobs` / `.Jobs` | `worker` |
+| `*.Hubs` / `.RealTime` | `hubs` |
+| `*.Integrations` / `.Adapters` / `.Connectors.*` | `integrations` |
+| `*.Cli` / `.Console` / `.Tool` | `cli` |
+| else | `other` |
 
-### Step 2 — Scaffolding check (formerly solution-inspector)
+## Step 2 — Scaffolding check
 
 For the 6 canonical ABP projects (resolved via `module_project_layout` or defaults `<src>/<Ns>.<Layer>`):
 
-1. **Project presence:** each directory exists and contains a matching `.csproj`. Missing → halt `MISSING_PROJECT`.
-2. **Module class presence:** for each project except `HttpApi.Host`, find one file `<Ns><LayerSuffix>Module.cs` inheriting `AbpModule`. Missing or malformed → halt `MISSING_MODULE`.
-3. **DbContext check:** in `<Ns>.EntityFrameworkCore`, find one `DbContext` subclass. Verify `OnModelCreating(ModelBuilder)` is overridden and calls `modelBuilder.ApplyConfigurationsFromAssembly(typeof(<Ns>DbContext).Assembly)` (or equivalent). Missing → halt `MISSING_DBCONTEXT` or `DBCONTEXT_NOT_APPLYING_CONFIGS`.
-4. **JsonStringEnumConverter check:** scan `Program.cs` and `<Ns>HttpApiHostModule.cs` for converter registration with camelCase naming policy. Absence is a `will_register` note, not a halt.
-5. **Solution-vs-disk cross-check:** `dotnet sln list` projects vs disk. Disk-only project → warning `SLN_MISMATCH`. Sln-only project → halt.
-6. **Feature folder note:** for each layer, record whether `<Ns>.<Layer>/<Feature>/` exists or is `will_create`. Existing files inside are recorded for the planner to flag as overwrite candidates (which would require explicit UPDATE_IN_PLACE).
+1. **Project presence.** Each dir + matching `.csproj`. Missing → `MISSING_PROJECT`.
+2. **Module class.** For each project except `HttpApi.Host`, find `<Ns><Layer>Module.cs : AbpModule`. Missing/malformed → `MISSING_MODULE`.
+3. **DbContext.** In `EntityFrameworkCore` project, find one `DbContext` subclass. `OnModelCreating(ModelBuilder)` must call `ApplyConfigurationsFromAssembly(...)`. Missing → `MISSING_DBCONTEXT` / `DBCONTEXT_NOT_APPLYING_CONFIGS`.
+4. **JsonStringEnumConverter.** Scan `Program.cs` and `<Ns>HttpApiHostModule.cs`. Absent → `will_register` note (not halt).
+5. **Solution-vs-disk cross-check.** Disk-only project → warning `SLN_MISMATCH`. Sln-only project missing on disk → halt.
+6. **Feature folders.** Per layer record `<Ns>.<Layer>/<Feature>/` as `exists` or `will_create`. Existing files inside → flag for planner as overwrite candidates.
 
-### Step 3 — Per-project parallel scan
+## Step 3 — Per-project parallel scan
 
-Dispatch one worker per project (or batches of 5 for very large solutions). Each worker traverses `.cs` and (for Localization) `.json` files. Skip `bin`, `obj`, `node_modules`, `.git`, `packages`, `artifacts`. Files over 200 KB are sampled (head + tail), not fully parsed.
+One worker per project (batches of 5 for very large solutions). Traverse `.cs` and `*/Localization/Resources/**/*.json`. Skip `bin`, `obj`, `node_modules`, `.git`, `packages`, `artifacts`. Files >200 KB sampled (head+tail).
 
-For each file extract via regex + cheap parsing:
+Extraction targets (regex + cheap parse):
 
-#### DTOs
+- **DTOs:** `class \w*Dto` + base. Kind = `input-dto` (`Create*Dto`), `update-dto` (`Update*Dto`), `output-dto` (`*Dto : EntityDto<>` / `FullAuditedEntityDto<>`), `list-request-dto` (`Get*ListDto`/`Get*ListInput`).
+- **Validators:** `class \w+ : AbstractValidator<\w+>` → target DTO, RuleFor count, `IStringLocalizer<>` injection.
+- **Mappers:** `[Mapper] interface I\w+Mapper` → name, methods, attribute presence. `AutoMapper.Profile` subclasses → `legacy-mapper` (convention violation if Mapperly declared).
+- **Entities + Value Objects:** classes extending `FullAuditedAggregateRoot<` / `AggregateRoot<` / `AuditedEntity<` / `Entity<` / `ValueObject` → kind, base, interfaces (`IMultiTenant`/`ISoftDelete`/`IPassivable`), props (with setter visibility), method signatures, ctor visibility, nested `Builder` presence.
+- **AppServices:** `class \w+AppService : ...` → interfaces, methods with `[Authorize(...)]`/`[RemoteService(...)]`, ctor deps. Authorization fingerprint `{method_count, authorized_method_count, unauthorized_methods[]}`. Plus `interface I\w+AppService : IApplicationService`.
+- **Permission constants and providers:** `*Permissions.cs` → tree of `GroupName` → nested entity classes → operation constants. `class \w+PermissionDefinitionProvider : PermissionDefinitionProvider` → `AddGroup`/`AddPermission`/`AddChild` calls. Pair constants ↔ provider.
+- **Enums:** `public enum \w+` → name, underlying type, members with explicit ints.
+- **Localization JSON:** under `*/Localization/Resources/**/*.json` → file path, culture, keys matching `<feature-pascal>:`.
+- **Auxiliary realizations** (per CLAUDE.md library):
 
-`public\s+(?:sealed\s+)?class\s+(\w*Dto)\s*(?::\s*([\w<>,\s]+))?` →
-- `kind`: `Create*Dto` → `input-dto`; `Update*Dto` → `update-dto`; `*Dto` extending `EntityDto<*>` / `FullAuditedEntityDto<*>` → `output-dto`; `Get*ListDto` / `Get*ListInput` → `list-request-dto`.
-- `shape_fingerprint`: properties (name, type, `init;`/`set;`), base class, constructor signatures, namespace.
-
-#### Validators
-
-`class\s+(\w+)\s*:\s*AbstractValidator<(\w+)>` → target DTO type, `RuleFor` count, whether `IStringLocalizer<*>` is injected.
-
-#### Mappers
-
-`\[Mapper\]\s*(?:public\s+)?(?:partial\s+)?interface\s+(I\w+Mapper)` → interface name, method signatures, `[MapProperty]` / `[MapperIgnore*]` presence. Also record `AutoMapper.Profile` subclasses as `legacy-mapper` (reconciler flags as convention violation if Mapperly is the declared library).
-
-#### Entities + Value Objects
-
-Class declarations extending `FullAuditedAggregateRoot<`, `AggregateRoot<`, `AuditedEntity<`, `Entity<`, or `ValueObject` →
-- `kind`: `aggregate-root` / `child-entity` / `value-object`.
-- Base class, interfaces (`IMultiTenant`, `ISoftDelete`, `IPassivable`).
-- Public properties (name, type, setter visibility), public method signatures (domain methods), constructor visibility, presence of nested `Builder` class.
-
-#### AppServices and interfaces
-
-`class\s+(\w+AppService)\s*:\s*([\w,\s<>]+)` →
-- Implemented interfaces, method signatures with `[Authorize(...)]` coverage, `[RemoteService(...)]` presence, constructor dependencies.
-- Authorization fingerprint: `{method_count, authorized_method_count, unauthorized_methods: [...]}`.
-
-`public\s+interface\s+(I\w+AppService)\s*:\s*IApplicationService` → method signatures.
-
-#### Permission constants and providers
-
-Files ending in `Permissions.cs` → tree of `GroupName` → per-entity nested classes → per-operation constants.
-
-`class\s+(\w+PermissionDefinitionProvider)\s*:\s*PermissionDefinitionProvider` → `AddGroup` / `AddPermission` / `AddChild` calls with their permission-name arguments. Pair with matching constants file.
-
-#### Enums
-
-`public enum (\w+)` → name, underlying type (if declared), members with explicit int values.
-
-#### Localization JSON
-
-Under `*/Localization/Resources/**/*.json` → file path, culture, keys. Extract the subset matching `(<feature-pascal>:.*)`.
-
-#### Auxiliary realizations (per CLAUDE.md library declaration)
-
-| Library | Match pattern | Records |
+| Library | Match | Records |
 |---|---|---|
-| `ABP BackgroundJobs` | classes inheriting `AsyncBackgroundJob<TArgs>` / `BackgroundJob<TArgs>` | class name, args type, `ExecuteAsync` method, dependencies |
-| Hangfire | methods decorated `[AutomaticRetry]` or `RecurringJob.AddOrUpdate` | method name, arg signature |
-| `IHostedService` | `class\s+(\w+)\s*:\s*(?:BackgroundService\|IHostedService)` | class name, `ExecuteAsync(CancellationToken)` override, constructor deps |
-| SignalR | `class\s+(\w+)\s*:\s*Hub(?:<\w+>)?` | class name, methods, class+method `[Authorize]`, `[HubMethodName]` aliases |
-| ABP local events | classes implementing `ILocalEventHandler<T>` | class name, event type, `HandleEventAsync` method |
-| ABP distributed events | classes implementing `IDistributedEventHandler<T>` | class name, event type |
-| CLI | classes inheriting from `cli_host_project`'s declared base | class name, invocation verb, argument list |
+| `ABP BackgroundJobs` | `: AsyncBackgroundJob<TArgs>` / `BackgroundJob<TArgs>` | class, args, `ExecuteAsync`, deps |
+| Hangfire | `[AutomaticRetry]` / `RecurringJob.AddOrUpdate` | method, args |
+| `IHostedService` | `: BackgroundService\|IHostedService` | class, `ExecuteAsync(CancellationToken)`, deps |
+| SignalR | `: Hub(?:<\w+>)?` | class, methods, `[Authorize]`, `[HubMethodName]` |
+| ABP local events | `: ILocalEventHandler<T>` | class, event, `HandleEventAsync` |
+| ABP distributed events | `: IDistributedEventHandler<T>` | class, event |
+| CLI | inherits `cli_host_project`'s declared base | class, verb, args |
 
-#### EF configurations
+- **EF configurations:** `class \w+Configuration : IEntityTypeConfiguration<T>` → target entity, file, project. ALSO detect `ModelBuilder.Configure<Module>()` extension methods in EFCore project.
+- **Module DI:** parse each `*Module.cs` `ConfigureServices` body → registered types (`AddScoped`/`AddTransient`/`AddSingleton`), `AddValidatorsFromAssembly`, `Configure<AbpLocalizationOptions>`, `JsonStringEnumConverter`.
 
-`class\s+(\w+Configuration)\s*:\s*IEntityTypeConfiguration<(\w+)>` → target entity, file path, project.
-Also detect ModelBuilder extension methods named `Configure<Module>` in EFCore project — record presence so the reconciler can decide which pattern to extend.
+## Step 4 — Feature filtering
 
-#### Module DI registrations
+Per artifact: `match_strength` = **strong** (class/file/namespace contains `feature.pascal`/`feature.slug`), **weak** (PascalCase name match without slug), **unrelated** (dropped).
 
-Parse each `*Module.cs` `ConfigureServices` body → registered types (`AddScoped` / `AddTransient` / `AddSingleton`), `AddValidatorsFromAssembly` presence, `Configure<AbpLocalizationOptions>` presence, `JsonStringEnumConverter` registration.
+## Step 5 — Shape fingerprint
 
-### Step 4 — Feature-scoped filtering
+`<kind>|<namespace>|<class_name>|<base>|<interfaces-joined>|<member-list-joined>` where members are sorted `name:type` for properties and `name(paramTypes):returnType` for methods.
 
-Per artifact, compute `match_strength`:
-- **Strong:** class/file/namespace contains `feature.pascal` or `feature.slug`.
-- **Weak:** name matches an FS element name (e.g., entity name) by PascalCase but doesn't carry the feature slug.
-- **Unrelated:** neither — dropped from catalog (counted in summary).
+## Output
 
-### Step 5 — Shape fingerprint
+`halt`, `halt_details`, `scaffolding {projects, dbcontext, json_enum_converter_registered, feature_folders, existing_files_in_feature_folders}`, `solution {path, project_count}`, `projects_by_kind {...}`, `supported_realizations {AppService, BackgroundJob, HostedService, HubMethod, EventHandler, CliCommand}` (each `bool`), `candidates {<kind>: [candidate]}` for all kinds in Step 3, `warnings[]`.
 
-Per candidate, compute a stable string the reconciler can hash:
+`candidate` shape: `{class_name, file_path, project, kind, namespace, base_class?, interfaces[], shape_fingerprint, match_strength, members {properties, methods, constructors}, authorization? (appservice-impl only), tenant_aware, declared_attributes[], misc{}}`.
 
-```
-<kind>|<namespace>|<class_name>|<base>|<interfaces-joined>|<member-list-joined>
-```
+`localization-key` entries: `{file_path, culture, key, value, project}`.
 
-`member-list` = sorted `name:type` for properties, `name(paramTypes):returnType` for methods.
+## Halt codes
 
-## Output schema
-
-```
-{
-  halt: null | "MISSING_PROJECT" | "MISSING_MODULE" | "MISSING_DBCONTEXT"
-       | "DBCONTEXT_NOT_APPLYING_CONFIGS" | "SLN_MISMATCH"
-       | "NO_SOLUTION_FILE" | "PROJECT_ENUMERATION_FAILED",
-  halt_details: {...} | null,
-
-  scaffolding: {
-    projects: {
-      domain:                {path, csproj, module_class_found: bool},
-      domain_shared:         {path, csproj, module_class_found: bool},
-      application_contracts: {path, csproj, module_class_found: bool},
-      application:           {path, csproj, module_class_found: bool},
-      entity_framework_core: {path, csproj, module_class_found: bool},
-      http_api_host:         {path, csproj}
-    },
-    dbcontext: {class_name, path, applies_configurations_from_assembly: bool},
-    json_enum_converter_registered: bool,
-    feature_folders: {                                  // per layer
-      "<Ns>.Domain/<Feature>": "exists"|"will_create",
-      ...
-    },
-    existing_files_in_feature_folders: [string]
-  },
-
-  solution: {path, project_count: integer},
-
-  projects_by_kind: {
-    domain: [...], "domain-shared": [...], "application-contracts": [...],
-    application: [...], efcore: [...], "http-api": [...],
-    worker: [...], hubs: [...], integrations: [...], cli: [...], other: [...]
-  },
-
-  supported_realizations: {
-    AppService:    true,
-    BackgroundJob: bool,                              // worker/jobs project OR ABP BG jobs in-app
-    HostedService: bool,                              // any IHostedService found
-    HubMethod:     bool,                              // Hub subclass + realtime_library declared
-    EventHandler:  bool,                              // ILocalEventHandler / IDistributedEventHandler found
-    CliCommand:    bool                               // cli_host_project declared and present
-  },
-
-  candidates: {
-    "input-dto":             [candidate],
-    "update-dto":            [candidate],
-    "output-dto":            [candidate],
-    "list-request-dto":      [candidate],
-    "validator":             [candidate],
-    "mapper-interface":      [candidate],
-    "legacy-mapper":         [candidate],
-    "aggregate-root":        [candidate],
-    "child-entity":          [candidate],
-    "value-object":          [candidate],
-    "domain-service":        [candidate],
-    "appservice-interface":  [candidate],
-    "appservice-impl":       [candidate],
-    "permissions-constants": [candidate],
-    "permission-provider":   [candidate],
-    "enum":                  [candidate],
-    "localization-key":      [key-entry],            // per key, not per file
-    "background-job":        [candidate],
-    "hosted-service":        [candidate],
-    "hub":                   [candidate],
-    "event-handler":         [candidate],
-    "cli-command":           [candidate],
-    "ef-configuration":      [candidate],
-    "ef-modelbuilder-extension": [candidate],         // ModelBuilder.ConfigureXyzModule() if present
-    "module-edit-target":    [candidate]
-  },
-
-  warnings: [{code, message}]
-}
-```
-
-`candidate` shape:
-
-```
-{
-  class_name, file_path, project, kind, namespace,
-  base_class: string | null,
-  interfaces: [string],
-  shape_fingerprint: string,
-  match_strength: "strong" | "weak",
-  members: {
-    properties:   [{name, type, setter: "init"|"set"|"private"|"none"}],
-    methods:      [{name, params: [{name,type}], return_type, attributes: [string]}],
-    constructors: [{params: [{name,type}], visibility}]
-  },
-  authorization: {                                    // appservice-impl only
-    method_count, authorized_method_count, unauthorized_methods: [string]
-  } | null,
-  tenant_aware: bool,
-  declared_attributes: [string],
-  misc: {...}
-}
-```
-
-`key-entry` = `{file_path, culture, key, value, project}`.
-
-## Halt conditions
-
-- No `.sln` file under `src_path` (or at declared `solution_file`).
-- `dotnet sln list` failure.
-- Project listed in solution but missing on disk.
-- Any of 6 ABP projects absent or lacking a `.csproj`.
-- Any of 5 required module classes missing or malformed.
-- DbContext class absent.
-- DbContext `OnModelCreating` does not call `ApplyConfigurationsFromAssembly`.
+`NO_SOLUTION_FILE` · `PROJECT_ENUMERATION_FAILED` · `MISSING_PROJECT` · `MISSING_MODULE` · `MISSING_DBCONTEXT` · `DBCONTEXT_NOT_APPLYING_CONFIGS` · `SLN_MISMATCH` (sln-only project missing on disk)
 
 ## Warnings (non-halting)
 
-- `CONVENTION_MISMATCH` — AutoMapper Profile found but CLAUDE.md says Mapperly. Reconciler decides.
-- `AUTH_COVERAGE_LOW` — AppService with < 100% `[Authorize]` coverage.
-- `LEGACY_REPOSITORY` — explicit `FooRepository` class found; this skill uses `IRepository<T>` only.
-- `MIXED_REALIZATION_AMBIGUITY` — class with same name exists in both `application` and `worker` project. Reconciler must clarify.
-- `SLN_MISMATCH` — disk has a project not listed in `.sln`.
-- `EF_CONFIG_PATTERN_MIXED` — both `IEntityTypeConfiguration<T>` files and a `ModelBuilder.Configure<Module>` extension exist; reconciler picks the dominant pattern.
+`CONVENTION_MISMATCH` (AutoMapper Profile when Mapperly declared) · `AUTH_COVERAGE_LOW` (<100% `[Authorize]`) · `LEGACY_REPOSITORY` (explicit `FooRepository` class) · `MIXED_REALIZATION_AMBIGUITY` (same name in app + worker) · `SLN_MISMATCH` (disk has unlisted project) · `EF_CONFIG_PATTERN_MIXED` (both `IEntityTypeConfiguration<T>` and ModelBuilder extension exist).
 
-## What this sub-agent never does
+## Never
 
-- Never writes or edits files.
-- Never runs `dotnet build`, `dotnet run`, `dotnet test`, or any `dotnet ef` command.
-- Never reads wiki content (that's `fs-loader`).
-- Never calls `AskUserQuestion`.
-- Never decides what to reuse — that's the reconciler's job. Reports what exists.
-- Never explores `bin/` / `obj/`. Never follows symlinks outside `src_path`.
+Writes/edits files. Runs `dotnet build/run/test/ef`. Reads wiki. `AskUserQuestion`. Decides reuse (reconciler's job). Explores `bin/`/`obj/` or follows symlinks outside `src_path`.

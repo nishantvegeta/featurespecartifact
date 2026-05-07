@@ -12,6 +12,17 @@ Multi-tenant SaaS trade finance platform built with **ABP Framework**, **Postgre
 
 ---
 
+## Configuration
+
+Project-owned paths consumed by FRS skills (see `plugins/agentic-flow/skills/generate-frs/references/phase-runbook.md` § Phase 0e):
+
+```yaml
+glossary_path: docs/glossary.md
+cross_cutting_path: docs/cross-cutting-concerns.md
+```
+
+If either key is omitted, the orchestrator falls back to these same paths as defaults. If neither resolves, Phase 0e halts with a path-specific error.
+
 ## `api/` — ABP Backend
 
 **Stack:** C# / .NET (latest LTS), ABP Framework, EF Core, PostgreSQL, OpenIddict, RabbitMQ

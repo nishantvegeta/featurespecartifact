@@ -1,0 +1,107 @@
+// generate-frs end-to-end flow (module-batched architecture).
+// Render with: dot -Tpng process-flow.dot -o process-flow.png
+//
+// Terminal states:
+//   final     — normal Phase 6 summary
+//   halt      — interrupted; Resume Block emitted
+//   redirect  — existing FRS detected; user pointed to skill:review-frs
+//
+// Architecture notes:
+//   - Drafting and validation run INLINE in the orchestrator, not as subagents.
+//   - Open Questions resolve in ONE batch per module (Move 2).
+//   - Dispositions gate at the MODULE boundary, not per FRS (Move 3).
+//   - FRS bodies never render to the user; they go straight to GitLab (Move 1).
+//   - All user gates use AskUserQuestion (no prose questions).
+//   - Shared references (frs-template, frs-validation-rules) Read once at module-loop start.
+
+digraph frs_process {
+    rankdir=TB;
+    node [fontname="Helvetica"];
+
+    input        [label="Input", shape=ellipse];
+    preflight    [label="Phase 0: Preflight\n(verify .claude/shared/ refs +\nsubagents present)", shape=box, style=filled, fillcolor="#d1ecf1"];
+    classify     [label="Phase 1: Source Classification\n(forked: frs-source-classifier)", shape=box, style=filled, fillcolor="#d1ecf1"];
+    existing_frs [label="Existing FRS\nstructure detected?", shape=diamond];
+    redirect     [label="HALT — redirect to\nskill:review-frs", shape=box, style=filled, fillcolor="#f8d7da"];
+    traversal    [label="traversed_imports empty\nbut imports exist?", shape=diamond];
+    parse        [label="Phase 2: Parse input\n(modules + operations)", shape=box];
+    scope        [label="Scope gate\n(>3 modules / >12 FRS?)", shape=diamond];
+    ambiguity    [label="Multiple modules?", shape=diamond];
+    gate_module  [label="AskUserQuestion:\nConfirm modules", shape=box, style=filled, fillcolor="#fff3cd"];
+    manifest     [label="Phase 3: Manifest", shape=box];
+    collision    [label="Initials\ncollision?", shape=diamond];
+    gate_initials[label="AskUserQuestion:\nDisambiguate initials", shape=box, style=filled, fillcolor="#fff3cd"];
+    xs_collision [label="Cross-session\nFRS-ID collision?", shape=diamond];
+    gate_xs      [label="AskUserQuestion:\nContinue / shift / cancel", shape=box, style=filled, fillcolor="#fff3cd"];
+    milestones   [label="Create milestones\n(idempotent, via\ngitlab-frs-syncer)", shape=box];
+    module_loop  [label="Phase 4: Module Loop\n(Read shared refs ONCE\nthen iterate FRS)", shape=box, style=filled, fillcolor="#e2d9f3"];
+    outline      [label="4a. Outline pass\n(all FRS in module,\nno bodies yet)", shape=box];
+    batch_oq     [label="4b. AskUserQuestion:\nBatch ALL module OQs", shape=box, style=filled, fillcolor="#fff3cd"];
+    frs_loop     [label="4c. Per-FRS:\ndraft + Self-Review +\nIndependent Reviewer pass", shape=box];
+    validation_ok[label="Validation clean?\n(no unresolved F)", shape=diamond];
+    critique_cap [label="2 critique passes\nexhausted?", shape=diamond];
+    gate_cap     [label="AskUserQuestion:\nmove / split / skip /\nhalt", shape=box, style=filled, fillcolor="#fff3cd"];
+    sync         [label="Dispatch gitlab-frs-syncer\n(create-issue, idempotent)", shape=box];
+    sync_fail    [label="3 sync attempts\nfailed?", shape=diamond];
+    halt         [label="HALT — emit\nResume Block", shape=box, style=filled, fillcolor="#f8d7da"];
+    summary      [label="Compact summary record\n(FRS-ID → issue link + counts)", shape=box];
+    more_frs     [label="More FRS in\nthis module?", shape=diamond];
+    module_gate  [label="4d. AskUserQuestion:\nApprove module /\nRevise FRS / Halt", shape=box, style=filled, fillcolor="#fff3cd"];
+    revise       [label="4e. Revision sub-loop\n(redraft + validate +\nupdate if clean)", shape=box];
+    revise_ok    [label="Validation clean?\n(no unresolved F)", shape=diamond];
+    revise_cap   [label="2 revision rounds\nexhausted?", shape=diamond];
+    more_module  [label="Phase 5:\nAnother module?", shape=diamond];
+    gate_module2 [label="AskUserQuestion:\nContinue / halt", shape=box, style=filled, fillcolor="#fff3cd"];
+    final        [label="Phase 6:\nFinal Output", shape=doublecircle];
+
+    input        -> preflight;
+    preflight    -> classify;
+    classify     -> existing_frs;
+    existing_frs -> redirect    [label="yes"];
+    existing_frs -> traversal   [label="no"];
+    traversal    -> classify    [label="yes (re-dispatch ×1)"];
+    traversal    -> parse       [label="no"];
+    parse        -> scope;
+    scope        -> ambiguity;
+    ambiguity    -> gate_module [label="yes"];
+    ambiguity    -> manifest    [label="no"];
+    gate_module  -> manifest;
+    manifest     -> collision;
+    collision    -> gate_initials [label="yes"];
+    collision    -> xs_collision  [label="no"];
+    gate_initials-> xs_collision;
+    xs_collision -> gate_xs     [label="yes"];
+    xs_collision -> milestones  [label="no"];
+    gate_xs      -> milestones;
+    milestones   -> module_loop;
+    module_loop  -> outline;
+    outline      -> batch_oq;
+    batch_oq     -> frs_loop;
+    frs_loop     -> validation_ok;
+    validation_ok-> sync        [label="yes"];
+    validation_ok-> critique_cap[label="no"];
+    critique_cap -> gate_cap    [label="yes"];
+    critique_cap -> frs_loop    [label="no — refine"];
+    gate_cap     -> halt        [label="halt"];
+    gate_cap     -> more_frs    [label="move"];
+    gate_cap     -> frs_loop    [label="split"];
+    gate_cap     -> more_frs    [label="skip"];
+    sync         -> sync_fail;
+    sync_fail    -> halt        [label="yes"];
+    sync_fail    -> summary     [label="no"];
+    summary      -> more_frs;
+    more_frs     -> frs_loop    [label="yes"];
+    more_frs     -> module_gate [label="no"];
+    module_gate  -> revise      [label="revise"];
+    module_gate  -> more_module [label="approve"];
+    module_gate  -> halt        [label="halt"];
+    revise       -> revise_ok;
+    revise_ok    -> module_gate [label="yes — updated"];
+    revise_ok    -> revise_cap  [label="no"];
+    revise_cap   -> module_gate [label="yes — accept synced state"];
+    revise_cap   -> revise      [label="no — revise again"];
+    more_module  -> gate_module2[label="yes"];
+    more_module  -> final       [label="no"];
+    gate_module2 -> module_loop [label="continue"];
+    gate_module2 -> halt        [label="halt"];
+}

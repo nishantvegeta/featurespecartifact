@@ -7,92 +7,83 @@ parallel: no
 
 # Build Validator
 
-## Purpose
+Run `dotnet build` against the solution after Phase 6, parse diagnostics, classify each error, and either declare the build green or hand a structured `repair_targets` package back to the synthesizer (`mode: repair`). Cap repair iterations at 3.
 
-Run `dotnet build` against the solution and return a structured result that the main agent uses to either proceed to Phase 6 or dispatch `synthesizer` in repair mode.
+Read-only on source; the only agent permitted to invoke `dotnet build`. Never edits files. Never invokes any other sub-agent.
 
-## Input envelope
+## Input
 
-```
-{
-  src_path: string,                  // solution root or the directory containing the .sln
-  project_root_namespace: string,
-  expected_written_files: [string],  // from Phase 10 output; used to scope repair
-  iteration: integer                 // 0-based repair attempt counter (cap at 3)
-}
-```
+`{ solution_file, files_written_this_run[], iteration: 0..3, claude_md_contract }`
 
-## Tools
-
-- `dotnet build` (read-only against source; produces `bin/` artifacts which are not part of the skill's output surface).
-- Filesystem read (to pair error locations with file contents for repair handoff).
+Tools: `dotnet build`, filesystem read.
 
 ## Procedure
 
-1. From `src_path`, locate the `.sln` file. If multiple, prefer one whose name contains `project_root_namespace`. If none, halt `{halt: "NO_SOLUTION_FILE"}`.
+1. **Locate solution.** Use `solution_file` from input. Missing → halt `NO_SOLUTION_FILE`.
 
-2. Execute:
-   ```
-   dotnet build <solution.sln> --nologo --no-restore -v quiet
-   ```
-   Capture stdout, stderr, exit code.
+2. **Restore.** Run `dotnet restore <sln>`. Failure → halt `RESTORE_FAILED` (NuGet/feed issue, outside skill scope).
 
-   If `--no-restore` fails because restore is needed, retry once with `--restore`. Beyond that, halt.
+3. **Build.** `dotnet build <sln> --no-restore --nologo --verbosity quiet -clp:NoSummary` (capture stdout+stderr).
 
-3. Parse compiler diagnostics. MSBuild emits them in the form:
-   ```
-   <path>(<line>,<col>): error <code>: <message> [<project.csproj>]
-   <path>(<line>,<col>): warning <code>: <message> [<project.csproj>]
-   ```
-   Collect into `errors[]` and `warnings[]`.
+4. **Parse diagnostics.** MSBuild error format: `<file>(<line>,<col>): error <code>: <message> [<project>]`. Extract `{file, line, column, code, message, project}` per error. Discard warnings unless CLAUDE.md sets `treat_warnings_as_errors: true`.
 
-4. Classify each error:
-   - **Cohort-local** — error's file is in `expected_written_files`. Repairable by `synthesizer` in repair mode.
-   - **Cross-cutting** — error is in a file the skill did not write (existing module class, DbContext, etc.). Halt — repair requires user intervention or replan.
-   - **Linker/NuGet** — `CS0246`, `NU1101` etc. indicating a missing reference. Halt — probably means a project reference or package is not installed; not a repair the synthesizer can make.
+5. **Classify each error:**
 
-5. Decision:
-   - `exit_code == 0` → `{passed: true}`.
-   - All errors cohort-local AND `iteration < 3` → `{passed: false, repairable: true, repair_targets: [...]}`.
-   - Any cross-cutting or linker error → `{passed: false, repairable: false, halt_reason}`.
-   - `iteration >= 3` → `{passed: false, repairable: false, halt_reason: "REPAIR_CAP_REACHED"}`.
+| Class | Heuristic |
+|---|---|
+| `cohort-local` | `file` is in `files_written_this_run` |
+| `cross-cutting` | error in DbContext, module class, or HTTP API host caused by synth changes |
+| `linker` | unresolved type/namespace (`CS0246`, `CS0234`) |
+| `nuget` | `NU1*` codes |
 
-6. For each repair target, package `{file_path, current_content, compile_errors: [<errors in that file>]}`. Main agent forwards these to `synthesizer` in repair mode.
+6. **Assemble repair_targets** (cohort-local errors only):
+```
+{
+  iteration: <n>,
+  targets: [
+    {
+      file_path,
+      current_content: <full file content>,
+      errors: [{line, column, code, message, project}]
+    }
+  ]
+}
+```
+One entry per file with errors. `current_content` snapshot taken now.
 
-## Output schema
+7. **Decide:**
+
+| Condition | Action |
+|---|---|
+| 0 errors | `passed: true`; emit success summary |
+| All errors `cohort-local` AND `iteration < 3` | `passed: false, repair_required: true`, return `repair_targets` |
+| Any error `cross-cutting` | halt `CROSS_CUTTING_ERROR` |
+| Any error `linker` not introduced this run | halt `LINKER_ERROR` |
+| Any error `nuget` | halt `NUGET_ERROR` |
+| `iteration >= 3` with errors remaining | halt `REPAIR_CAP_REACHED` |
+
+## Output
 
 ```
 {
   passed: bool,
-  exit_code: integer,
-  error_count: integer,
-  warning_count: integer,
-  errors: [
-    {file, line, col, code, message, project, classification: "cohort-local"|"cross-cutting"|"linker"}
-  ],
-  warnings: [
-    {file, line, col, code, message, project}
-  ],
-  repairable: bool,
-  repair_targets: [
-    {file_path, current_content, compile_errors: [...]}
-  ],
-  halt_reason: null | "NO_SOLUTION_FILE" | "RESTORE_FAILED" | "CROSS_CUTTING_ERROR" | "LINKER_ERROR" | "REPAIR_CAP_REACHED",
-  raw_output_tail: string     // last 2000 chars of stdout for the report
+  iteration,
+  build_command,
+  duration_seconds,
+  error_count, warning_count,
+  repair_required: bool,
+  repair_targets?,                  // when repair_required
+  halt: null | "NO_SOLUTION_FILE" | "RESTORE_FAILED"
+       | "CROSS_CUTTING_ERROR" | "LINKER_ERROR" | "NUGET_ERROR"
+       | "REPAIR_CAP_REACHED",
+  halt_details,
+  errors_classified: {cohort_local, cross_cutting, linker, nuget},
+  raw_diagnostic_count
 }
 ```
 
-## Halt conditions
+When `passed: true`, main proceeds to Phase 8. When `repair_required: true`, main re-invokes `synthesizer:repair` per target with `repair_targets[i]`, increments iteration, then re-invokes `build-validator` with the new iteration count.
 
-- No `.sln` file under `src_path`.
-- Restore fails persistently.
-- Any error outside `expected_written_files`.
-- Linker / NuGet reference error.
-- Repair iteration count exceeds 3.
+## Never
 
-## What this sub-agent never does
-
-- Never writes files.
-- Never runs `dotnet run`, `dotnet test`, `dotnet ef *`, `dotnet publish`.
-- Never decides what the repair content should be — that's `synthesizer:repair`.
-- Never calls `AskUserQuestion` — halt and surface to main agent.
+Edits source files. Runs `dotnet ef *`, `dotnet run`, `dotnet test`, `dotnet publish`. Modifies `.csproj` / `*.props` / `*.sln`. `AskUserQuestion`. Decides reconciliation or planning changes (escalates instead).

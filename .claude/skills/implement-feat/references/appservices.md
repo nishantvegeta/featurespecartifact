@@ -1,12 +1,12 @@
 # AppService Implementation Patterns
 
-AppService interface methods are HTTP endpoints — ABP auto-routes them. No manual controllers. This file specifies patterns the `artifact-synthesizer` emits for `appservice-impl`.
+AppService methods are HTTP endpoints — ABP auto-routes them. No manual controllers. Patterns synthesizer emits for `appservice-impl`.
 
-## Public / Private Split
+## Public / Private split
 
-When CLAUDE.md declares `api_routing_conventions` with `public_prefix`/`private_prefix`, emit two classes: `<Feature>PublicAppService` and `<Feature>PrivateAppService`. Without split, a single `<Feature>AppService`.
+When CLAUDE.md declares `api_routing_conventions` with `public_prefix`/`private_prefix`, emit two classes: `<Feature>PublicAppService` and `<Feature>PrivateAppService`. Without split, one `<Feature>AppService`.
 
-## Class Skeleton
+## Class skeleton
 
 ```csharp
 namespace <Ns>.<Feature>;
@@ -32,7 +32,7 @@ public class <Feature>PublicAppService : ApplicationService, I<Feature>PublicApp
 }
 ```
 
-## Method Patterns
+## Method patterns
 
 ### `CreateAsync`
 
@@ -43,11 +43,8 @@ public async Task<<Entity>Dto> CreateAsync(Create<Entity>Dto input)
     _logger.LogInformation("{Method} invoked by {UserId} with {@Input}",
         nameof(CreateAsync), CurrentUser.Id, input);
 
-    // No tenantId passed — ABP handles via ICurrentTenant scope
-    var entity = <Entity>.Create(
-        GuidGenerator.Create(),
-        input.Name,
-        input.Amount);
+    // No tenantId passed — ABP handles via ICurrentTenant scope (CRC-D1)
+    var entity = <Entity>.Create(GuidGenerator.Create(), input.Name, input.Amount);
 
     await _repository.InsertAsync(entity, autoSave: true);
 
@@ -61,7 +58,7 @@ public async Task<<Entity>Dto> CreateAsync(Create<Entity>Dto input)
 }
 ```
 
-### `GetAsync` — Select Only Required Fields
+### `GetAsync` — select only required fields
 
 ```csharp
 [Authorize(<Feature>Permissions.<Entity>.Read)]
@@ -84,7 +81,7 @@ public async Task<<Entity>Dto> GetAsync(Guid id)
 }
 ```
 
-### `GetListAsync` — Dynamic Sorting + Select Before Fetch
+### `GetListAsync` — dynamic sorting + select before fetch
 
 ```csharp
 [Authorize(<Feature>Permissions.<Entity>.Read)]
@@ -95,20 +92,19 @@ public async Task<PagedResultDto<<Entity>ListDto>> GetListAsync(Get<Entity>ListD
 
     var query = await _repository.GetQueryableAsync();
 
-    // Optional filters
     query = query
         .WhereIf(!string.IsNullOrWhiteSpace(input.Filter),
             x => x.Name.Contains(input.Filter!))
         .WhereIf(input.Status.HasValue,
             x => x.Status == input.Status!.Value);
 
-    // Dynamic sorting — NO switch statements
+    // Dynamic sorting — NO switch statements (gate 5)
     query = query.ApplyDynamicSorting(input.Sorting, input.SortDirection,
         defaultSort: x => x.CreationTime, defaultDescending: true);
 
     var total = await AsyncExecuter.CountAsync(query);
 
-    // CORRECT: Select BEFORE fetch — project in query chain
+    // Select BEFORE fetch — project in query chain (gate 6)
     var items = await AsyncExecuter.ToListAsync(
         query.Skip(input.SkipCount).Take(input.MaxResultCount)
              .Select(x => MapToListItemDto(x)));
@@ -140,7 +136,7 @@ public async Task<<Entity>Dto> UpdateAsync(Update<Entity>Dto input)
 }
 ```
 
-### `DeleteAsync` — Use ABP Soft Delete
+### `DeleteAsync` — use ABP soft delete (gate 7)
 
 ```csharp
 [Authorize(<Feature>Permissions.<Entity>.Delete)]
@@ -157,7 +153,7 @@ public async Task DeleteAsync(Guid id)
 }
 ```
 
-### Custom Operations
+### Custom operations
 
 ```csharp
 [Authorize(<Feature>Permissions.<Entity>.Approve)]
@@ -173,32 +169,32 @@ public async Task<<Entity>Dto> ApproveAsync(Guid id)
 }
 ```
 
-## Exception Handling — Only When Needed (CRC-A4)
+## Exception handling — only when needed (CRC-A4)
 
 Do NOT wrap every method in try-catch. Use try-catch only for:
 - External service calls
 - Retry logic
 - Domain-specific validations needing translation
-- BackgroundJobs/HostedServices (never crash the worker)
+- BackgroundJobs / HostedServices (never crash the worker — log, do NOT re-throw)
 
-For standard AppService CRUD, ABP's exception infrastructure handles HTTP status codes. Business failures use `throw new BusinessException(<Feature>Constants.ErrorMessages.<Key>)`.
+For standard AppService CRUD, ABP's exception infrastructure handles HTTP status codes. Business failures: `throw new BusinessException(<Feature>Constants.ErrorMessages.<Key>)`.
 
 ## Authorization
 
 Every method gets `[Authorize(<permission>)]`. Use `AsyncExecuter` for materialization. Never `.Result`, `.Wait()`, `.GetAwaiter().GetResult()`.
 
-## Return Shapes
+## Return shapes
 
 Single-item: `<Entity>Dto`. Paged list: `PagedResultDto<<Entity>Dto>`. Void: `Task` (throw on failure, void on success).
 
 ## AppServices NEVER
 
-- Call `SaveChangesAsync` on DbContext directly or inject DbContext.
-- Use `ILocalEventBus` — events are out of scope.
-- Use `System.Linq.Dynamic.Core` unless CLAUDE.md opts in.
-- Orchestrate across multiple aggregates inline — delegate to Domain Service.
-- Return domain aggregates directly — always map to DTO.
-- Use switch-based sorting.
-- Map after fetch — always select-before-fetch.
-- Pass tenantId to entity constructors.
-- Manually set IsDeleted/DeleterId — use DeleteAsync.
+- Call `SaveChangesAsync` on DbContext directly or inject `DbContext`
+- Use `ILocalEventBus` (events out of scope)
+- Use `System.Linq.Dynamic.Core` unless CLAUDE.md opts in
+- Orchestrate across multiple aggregates inline — delegate to Domain Service
+- Return domain aggregates directly — always map to DTO
+- Use switch-based sorting
+- Map after fetch — always select-before-fetch
+- Pass `tenantId` to entity constructors
+- Manually set `IsDeleted`/`DeleterId` — use `DeleteAsync`

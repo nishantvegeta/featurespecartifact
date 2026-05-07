@@ -1,80 +1,32 @@
-# ABP Built-in Entities — Do Not Duplicate
+# ABP Built-in Entities — Do Not Re-create
 
-ABP ships with identity, tenant, setting, feature, audit-log, permission, and BLOB-storage entities. Features built with this skill MUST NOT re-synthesize any of these. If an FS page defines a concept that matches a built-in, the page must reference the built-in rather than declare a new Entity.
+ABP ships with entities for cross-cutting concerns. If FS describes a domain concept ABP already provides, the skill must not emit a parallel implementation. `fs-loader` flags duplicates; `reconciler` raises `BUILTIN_DUPLICATE` Conflict for user resolution.
 
-`fs-loader` flags duplicates as warnings; `traceability-validator` escalates them to defects.
+## Mapping table
 
-## Identity module
-
-| Built-in | Namespace | Replaces |
+| FS describes | ABP provides | Notes |
 |---|---|---|
-| `IdentityUser` | `Volo.Abp.Identity` | Any "User" aggregate — reference it, add domain fields via a separate aggregate if needed |
-| `IdentityRole` | `Volo.Abp.Identity` | Any "Role" aggregate |
-| `IdentityUserClaim`, `IdentityUserToken`, `IdentityUserLogin` | `Volo.Abp.Identity` | Claim/token/login children |
-| `OrganizationUnit` | `Volo.Abp.Identity` | Any "OrgUnit", "Department", "Team" where the intent is hierarchical grouping of users |
+| User account, login, profile | `IdentityUser` (`Volo.Abp.Identity`) | Extend via Identity Pro extension props or a satellite `UserProfile` aggregate referencing `IdentityUser.Id` — never duplicate `User`. |
+| Organization unit, department, team | `OrganizationUnit` (`Volo.Abp.Identity`) | Hierarchy + role binding built-in. |
+| Tenant | `Tenant` (`Volo.Abp.TenantManagement`) | Tenant CRUD/UI handled by `TenantManagement` module. |
+| Setting | `Setting` (`Volo.Abp.SettingManagement`) | Settings via `ISettingProvider` + `SettingDefinitionProvider` — not a domain entity. |
+| Feature flag | `Feature` (`Volo.Abp.FeatureManagement`) | Feature flags via `IFeatureChecker` + `FeatureDefinitionProvider`. |
+| Permission grant | `PermissionGrant` (`Volo.Abp.PermissionManagement`) | Skill emits Permission *definitions* (`PermissionDefinitionProvider`); grants are managed by ABP. |
+| Audit log | `AuditLogInfo` (`Volo.Abp.AuditLogging`) | Generic audit is automatic. Custom business history is OK as a separate aggregate. |
+| BLOB / file | `BlobContainer` (`Volo.Abp.BlobStoring`) | Use `IBlobContainer<T>` instead of byte-array property. |
+| Background job record | `BackgroundJobInfo` (`Volo.Abp.BackgroundJobs`) | Internal queue. Skill emits Job classes, not new BackgroundJobInfo. |
 
-## Tenant management module
+## Custom-vs-builtin disambiguation
 
-| Built-in | Replaces |
-|---|---|
-| `Tenant` | Any "Tenant" aggregate |
-| `TenantConnectionString` | Per-tenant connection string storage |
+User asks for "Profile" — refers to `IdentityUser` extension or a separate `Profile` aggregate? Reconciler rule:
 
-## Settings module
+- FS Entity page lists fields ABP already has on `IdentityUser` (UserName, Email, PhoneNumber) → **likely BUILTIN_DUPLICATE**, raise Conflict.
+- FS lists app-specific fields (LoyaltyTier, OnboardingStep, ApprovedRegions) → **legitimate satellite aggregate**, generate.
 
-| Built-in | Replaces |
-|---|---|
-| `Setting` | Any key-value setting store scoped by global/tenant/user |
-| `SettingDefinition` | Any declarative setting metadata |
+When in doubt, raise Conflict at Phase 3.
 
-Feature-level settings are defined in code via `SettingDefinitionProvider`, not as Entity pages.
+## Custom business history
 
-## Features module
+Skill is happy to generate a custom history aggregate (e.g. `LoanApplicationHistory`) when the FS calls for **business-meaningful** event log distinct from technical audit. ABP's `AuditLog` captures HTTP-level audit (who called what endpoint with which payload); business history captures domain-level events (state transitions, approvals).
 
-| Built-in | Replaces |
-|---|---|
-| `Feature` | Tenant-visible feature flags |
-| `FeatureDefinition` | Metadata for feature flags |
-
-## Permission management module
-
-| Built-in | Replaces |
-|---|---|
-| `PermissionGrant` | Any "UserPermission" / "RolePermission" aggregate |
-| `PermissionDefinition` | Metadata — defined via `PermissionDefinitionProvider` (which this skill generates) |
-
-## Audit logging module
-
-| Built-in | Replaces |
-|---|---|
-| `AuditLog`, `AuditLogAction`, `EntityChange`, `EntityPropertyChange` | Any custom audit trail aggregate for generic create/modify/delete tracking |
-
-Use ABP's audit logging rather than synthesizing a parallel audit aggregate. Custom business-domain history (e.g., "LoanStatusHistory") is fine — that is not a generic audit log.
-
-## BLOB storing module
-
-| Built-in | Replaces |
-|---|---|
-| `BlobContainer` / `IBlobContainer` | Any "FileStorage" / "Attachment" aggregate for binary persistence |
-
-Business-domain attachments that carry metadata (who uploaded, tags, business state) legitimately get their own aggregate — the file content lives in a BLOB container, the metadata in a custom Entity.
-
-## Background workers / jobs
-
-| Built-in | Replaces |
-|---|---|
-| `BackgroundJobInfo` | Any "QueuedJob" aggregate |
-| `IBackgroundJobManager` | Any custom job-enqueuing port |
-
-## Tables prefix convention
-
-Built-ins use their own table prefix (`Abp*`). Project tables use the CLAUDE.md `db_table_prefix` (default `App`). Never collide.
-
-## How FS pages should reference built-ins
-
-- FS Entity page titled "User" → add a note: `**Built-in reference:** this feature uses `IdentityUser`; no new Entity is generated.`
-- FS Command "AssignRoleToUser" → source Entity is `IdentityUser`; the skill generates the Command + validator + AppService against `IIdentityUserAppService` or a custom orchestration layer — but does NOT create a new `User.cs`.
-
-## Detection heuristic
-
-`fs-loader` matches by name (case-insensitive) against this list. `traceability-validator` confirms no aggregate descriptor collides. Collision = defect `BUILT_IN_DUPLICATE`.
+This is generated as a normal aggregate, not as ABP audit log extension.

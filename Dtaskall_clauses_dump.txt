@@ -1,0 +1,397 @@
+[
+  {
+    "clause_key": "c1",
+    "source_iid": 15,
+    "source_section_heading": "5. Actors",
+    "source_anchor": "5-actors",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#5-actors",
+    "source_label": "FRS #15 — Actors",
+    "text": "Bank Admin is the primary actor for listing LC Issuance ChecklistItems.",
+    "original_text": "Bank Admin (primary).",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c2",
+    "source_iid": 15,
+    "source_section_heading": "5. Actors",
+    "source_anchor": "5-actors",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#5-actors",
+    "source_label": "FRS #15 — Actors",
+    "text": "Access to list ChecklistItems requires TradeFinancePermissions.ChecklistItems.Default.",
+    "original_text": "Requires `TradeFinancePermissions.ChecklistItems.Default`.",
+    "classification": "ddd-mapped",
+    "naming_applied": [],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c3",
+    "source_iid": 15,
+    "source_section_heading": "3. Scope",
+    "source_anchor": "3-scope",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#3-scope",
+    "source_label": "FRS #15 — Scope",
+    "text": "List results are scoped exclusively to the authenticated tenant; no cross-tenant ChecklistItems are returned.",
+    "original_text": "Results scoped to authenticated tenant only.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c4",
+    "source_iid": 15,
+    "source_section_heading": "10. Main Flow",
+    "source_anchor": "10-main-flow",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#10-main-flow",
+    "source_label": "FRS #15 — Main Flow",
+    "text": "System retrieves all non-deleted ChecklistItems for the authenticated tenant, sorted by SequenceNumber ascending.",
+    "original_text": "System retrieves all non-deleted Checklist Items for authenticated tenant, sorted by Sequence Number ascending.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      },
+      {
+        "from": "Sequence Number",
+        "to": "SequenceNumber",
+        "rule": "property_pascal_case"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c6",
+    "source_iid": 15,
+    "source_section_heading": "12. Exception Flows",
+    "source_anchor": "12-exception-flows",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#12-exception-flows",
+    "source_label": "FRS #15 — Exception Flows",
+    "text": "A user without TradeFinancePermissions.ChecklistItems.Default is denied access to the list endpoint.",
+    "original_text": "User without `TradeFinancePermissions.ChecklistItems.Default` is not granted access; redirected.",
+    "classification": "ddd-mapped",
+    "naming_applied": [],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c8",
+    "source_iid": 15,
+    "source_section_heading": "15. Form Fields",
+    "source_anchor": "15-form-fields",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#15-form-fields",
+    "source_label": "FRS #15 — Form Fields",
+    "text": "The list query default sort order is SequenceNumber ascending; sort order parameter is optional.",
+    "original_text": "Sort Order (default: Sequence Number ascending, optional).",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Sequence Number",
+        "to": "SequenceNumber",
+        "rule": "property_pascal_case"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c9",
+    "source_iid": 15,
+    "source_section_heading": "16. Functional Requirements",
+    "source_anchor": "16-functional-requirements",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#16-functional-requirements",
+    "source_label": "FRS #15 — Functional Requirements",
+    "text": "FR-BS-01-01: Display all non-deleted ChecklistItems including both active and inactive items.",
+    "original_text": "FR-BS-01-01: Display all non-deleted Checklist Items including active AND inactive.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c10",
+    "source_iid": 15,
+    "source_section_heading": "16. Functional Requirements",
+    "source_anchor": "16-functional-requirements",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#16-functional-requirements",
+    "source_label": "FRS #15 — Functional Requirements",
+    "text": "FR-BS-01-02: ChecklistItems are presented in ascending SequenceNumber order by default.",
+    "original_text": "FR-BS-01-02: Present in ascending Sequence Number order by default.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      },
+      {
+        "from": "Sequence Number",
+        "to": "SequenceNumber",
+        "rule": "property_pascal_case"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c12",
+    "source_iid": 15,
+    "source_section_heading": "16. Functional Requirements",
+    "source_anchor": "16-functional-requirements",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#16-functional-requirements",
+    "source_label": "FRS #15 — Functional Requirements",
+    "text": "FR-BS-01-05: List results must be restricted to the authenticated tenant; no cross-tenant ChecklistItems are returned.",
+    "original_text": "FR-BS-01-05: Restrict results to authenticated tenant; no cross-tenant items returned.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c13",
+    "source_iid": 15,
+    "source_section_heading": "20. Business Rules",
+    "source_anchor": "20-business-rules",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#20-business-rules",
+    "source_label": "FRS #15 — Business Rules",
+    "text": "BR-01: Soft-deleted ChecklistItems are permanently excluded from list results; they are retained for audit purposes and are never surfaced in the configuration view.",
+    "original_text": "BR-01: Soft-deleted items permanently excluded; retained for audit; never shown.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "items",
+        "to": "ChecklistItems",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c14",
+    "source_iid": 15,
+    "source_section_heading": "20. Business Rules",
+    "source_anchor": "20-business-rules",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/15#20-business-rules",
+    "source_label": "FRS #15 — Business Rules",
+    "text": "BR-03: All ChecklistItem queries are always scoped to the authenticated tenant.",
+    "original_text": "BR-03: Always scoped to authenticated tenant.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Item queries",
+        "to": "ChecklistItem queries",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c15",
+    "source_iid": 16,
+    "source_section_heading": "5. Actors",
+    "source_anchor": "5-actors",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#5-actors",
+    "source_label": "FRS #16 — Actors",
+    "text": "Bank Admin is the actor for adding a ChecklistItem; requires TradeFinancePermissions.ChecklistItems.Create.",
+    "original_text": "Bank Admin. Requires `TradeFinancePermissions.ChecklistItems.Create`.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Item",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c16",
+    "source_iid": 16,
+    "source_section_heading": "10. Main Flow",
+    "source_anchor": "10-main-flow",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#10-main-flow",
+    "source_label": "FRS #16 — Main Flow",
+    "text": "System validates that the submitted description is non-empty, not whitespace-only, and within the 500-character limit before creating a ChecklistItem.",
+    "original_text": "System validates description: non-empty, not whitespace-only, within 500-character limit.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Item",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c17",
+    "source_iid": 16,
+    "source_section_heading": "10. Main Flow",
+    "source_anchor": "10-main-flow",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#10-main-flow",
+    "source_label": "FRS #16 — Main Flow",
+    "text": "System creates a new ChecklistItem with the provided description, sets it as active by default, assigns the next available SequenceNumber, and scopes it to the authenticated tenant.",
+    "original_text": "System creates ChecklistItem as active, assigns next available sequence position, scopes to authenticated tenant.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "ChecklistItem",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      },
+      {
+        "from": "sequence position",
+        "to": "SequenceNumber",
+        "rule": "property_pascal_case"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c18",
+    "source_iid": 16,
+    "source_section_heading": "10. Main Flow",
+    "source_anchor": "10-main-flow",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#10-main-flow",
+    "source_label": "FRS #16 — Main Flow",
+    "text": "System records an Audit Trail entry upon successful creation of a ChecklistItem.",
+    "original_text": "System records creation entry in Audit Trail.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist Item",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c20",
+    "source_iid": 16,
+    "source_section_heading": "12. Exception Flows",
+    "source_anchor": "12-exception-flows",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#12-exception-flows",
+    "source_label": "FRS #16 — Exception Flows",
+    "text": "If the description is empty or whitespace-only, a validation error is returned and the ChecklistItem is not created.",
+    "original_text": "Empty or whitespace-only description → validation error; item not created.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "item",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c21",
+    "source_iid": 16,
+    "source_section_heading": "12. Exception Flows",
+    "source_anchor": "12-exception-flows",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#12-exception-flows",
+    "source_label": "FRS #16 — Exception Flows",
+    "text": "If the description exceeds 500 characters, a validation error is returned and the ChecklistItem is not created.",
+    "original_text": "Description exceeds 500 characters → validation error; item not created.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "item",
+        "to": "ChecklistItem",
+        "rule": "aggregate_root"
+      }
+    ],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c22",
+    "source_iid": 16,
+    "source_section_heading": "12. Exception Flows",
+    "source_anchor": "12-exception-flows",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#12-exception-flows",
+    "source_label": "FRS #16 — Exception Flows",
+    "text": "A request without TradeFinancePermissions.ChecklistItems.Create is refused.",
+    "original_text": "No `TradeFinancePermissions.ChecklistItems.Create` → request refused.",
+    "classification": "ddd-mapped",
+    "naming_applied": [],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c23",
+    "source_iid": 16,
+    "source_section_heading": "15. Form Fields",
+    "source_anchor": "15-form-fields",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#15-form-fields",
+    "source_label": "FRS #16 — Form Fields",
+    "text": "Description field is mandatory, must be non-empty, has a maximum length of 500 characters, and whitespace is trimmed before validation.",
+    "original_text": "Description (mandatory; non-empty; max 500 chars; trim whitespace before validation).",
+    "classification": "ddd-mapped",
+    "naming_applied": [],
+    "tenancy_signals": []
+  },
+  {
+    "clause_key": "c24",
+    "source_iid": 16,
+    "source_section_heading": "16. Functional Requirements",
+    "source_anchor": "16-functional-requirements",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#16-functional-requirements",
+    "source_label": "FRS #16 — Functional Requirements",
+    "text": "FR-BS-02-01: Create a ChecklistItem with description, tenant scope, active status, and auto-assigned SequenceNumber.",
+    "original_text": "FR-BS-02-01: Create ChecklistItem with description, tenant scope, active status, auto-assigned sequence.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "sequence",
+        "to": "SequenceNumber",
+        "rule": "property_pascal_case"
+      }
+    ],
+    "tenancy_signals": [
+      "TenantId"
+    ]
+  },
+  {
+    "clause_key": "c25",
+    "source_iid": 16,
+    "source_section_heading": "16. Functional Requirements",
+    "source_anchor": "16-functional-requirements",
+    "source_url": "http://localhost:8080/root/trade-finance/-/issues/16#16-functional-requirements",
+    "source_label": "FRS #16 — Functional Requirements",
+    "text": "FR-BS-02-02: Reject a ChecklistItem creation request if the description is empty, whitespace-only, or exceeds 500 characters.",
+    "original_text": "FR-BS-02-02: Reject empty, whitespace-only, or >500 char description.",
+    "classification": "ddd-mapped",
+    "naming_applied": [
+      {
+        "from": "Checklist 

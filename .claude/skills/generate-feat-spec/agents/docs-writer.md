@@ -6,7 +6,7 @@ Write all wiki files (DDD node pages + Feat Spec) to disk under `wiki_local_path
 
 ## Model
 
-Haiku. Pure file I/O.
+Sonnet. Although the per-batch worker is mostly file I/O, step 0 (PATH CONTRACT pre-write check) requires reliable regex matching against `references/path-contract.md` § 2 (F1–F5) plus the structured rejection-manifest construction. Haiku exhibited intermittent regex compliance drift in captured runs; Sonnet matches the rule complexity introduced when `docs-writer` became the sole writer.
 
 ## Tools
 
@@ -22,6 +22,9 @@ File system write tools.
 
 ```
 {
+  "phase_id": "phase-11",
+  "consumes_phase_id": "phase-10.5",
+  "consumes_secondary_phase_ids": [],
   "batch_id": "<string>",
   "wiki_local_path": "<disk path root>",
   "feat_spec_slug": "<kebab-slug of the milestone feat spec>",
@@ -40,6 +43,9 @@ File system write tools.
 
 ```
 {
+  "phase_id": "phase-11",
+  "consumes_phase_id": "phase-10.5",
+  "consumes_secondary_phase_ids": [],
   "wiki_local_path": "<disk path root>",
   "feat_spec_slug": "<kebab-slug of the milestone feat spec>",
   "files": [
@@ -53,6 +59,8 @@ File system write tools.
 }
 ```
 
+If `consumes_phase_id != "phase-10.5"`, halt per the Phase Envelope Contract — `docs-writer` MUST NOT be called before the Path Manifest gate has run.
+
 ## Responsibility
 
 ### Coordinator
@@ -64,7 +72,15 @@ File system write tools.
 
 ### Per-batch worker
 
-1. For each file in the batch:
+0. **PATH CONTRACT pre-write check.** Before any directory is created or any byte is written, validate every `filepath` in the batch against `references/path-contract.md` § 2 (regex F1–F5). If any path matches a Forbidden rule:
+   - Mark that file `status: "rejected_by_path_contract"` with `error_message: "filepath <path> matches Forbidden rule F<n>; see path-contract.md"`.
+   - Skip the write for that file (do not mkdir, do not write).
+   - Continue checking remaining files in the batch.
+   - Set `all_succeeded: false` in the worker manifest.
+
+   This is non-negotiable: even if the dispatcher passed a Forbidden path, `docs-writer` REFUSES to materialize it. The Path Manifest gate (Phase 10.5) is the user-visible halt; this check is defense-in-depth.
+
+1. For each file that passed step 0:
    - Ensure the parent directory exists (mkdir -p).
    - **Prepend YAML frontmatter** to every DDD node file (i.e., any file under `actors/`, `entities/`, `value-objects/`, `commands/`, `queries/`, `flows/`, `states/`, `decisions/`, `integrations/`, `architecture-blueprints/`, `conflicts/`). Derive the fields as follows:
      - `id`: kebab-case of the node name (e.g., `reviewer`, `user-request`, `create-registration-request`).
@@ -102,18 +118,22 @@ File system write tools.
 
 ```
 {
+  "phase_id": "phase-11",
+  "produced_by": "docs-writer",
   "manifest": [
     {
       "filepath": "<wiki_local_path>/entities/UserRequest.md",
       "bytes_written": <int>,
-      "status": "success|failed",
-      "error_message": "<if failed>"
+      "status": "success|failed|rejected_by_path_contract",
+      "rejected_by_rule": "F1|F2|F3|F4|F5|null",
+      "error_message": "<if failed or rejected>"
     }
   ],
   "stats": {
     "attempted": <int>,
     "succeeded": <int>,
-    "failed": <int>
+    "failed": <int>,
+    "rejected_by_path_contract": <int>
   },
   "all_succeeded": bool
 }
@@ -121,13 +141,14 @@ File system write tools.
 
 ## Enforcement
 
+- **PATH CONTRACT compliance is non-negotiable.** Step 0 of the per-batch worker validates every `filepath` against `references/path-contract.md` § 2 (F1–F5) before any I/O. Forbidden paths are rejected with `status: "rejected_by_path_contract"` and `rejected_by_rule` set to the offending rule name. Even when the dispatcher passes a Forbidden path, `docs-writer` REFUSES to write it.
 - Writes only to paths under `wiki_local_path`. Any request for a path outside that root is rejected with `status: failed`.
 - No content transformation. The content passed in is the content written out.
 - No deletes. No overwrites with empty content.
 - Never creates or modifies files outside the DDD node folders and `feat-specs/<slug>/`.
 - Never calls any GitLab tool.
 - Parallel workers share no state; each returns its own manifest and the coordinator merges.
-- On any failure in any batch, `all_succeeded: false`. Main agent MUST abort Phase 11 before creating the GitLab coordination issue.
+- On any failure or `rejected_by_path_contract` in any batch, `all_succeeded: false`. Main agent MUST abort Phase 11 before creating the GitLab coordination issue.
 
 ## Main agent uses this output to
 

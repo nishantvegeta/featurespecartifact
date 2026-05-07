@@ -1,105 +1,98 @@
 # DTOs and Validators
 
-## Input DTO rules
+## Input DTOs
 
-Every DTO that flows into the system (Create*, Update*, filter DTOs on Queries) uses `{ get; init; }` properties. Once constructed, the DTO is immutable. `artifact-synthesizer` refuses to emit input DTOs with `set;`.
+Every DTO that flows IN (`Create*`, `Update*`, filter DTOs on Queries) uses `{ get; init; }`. Once constructed, immutable. Synthesizer refuses input DTOs with `set;`.
 
 ### `Create<Entity>Dto`
 
-- Namespace `<Ns>.<Feature>.Dtos`.
-- `public class Create<Entity>Dto`.
-- Properties with `{ get; init; }` — one per field on the Entity page that is required at creation AND not auto-populated.
+- Namespace `<Ns>.<Feature>.Dtos`. `public class Create<Entity>Dto`.
+- `{ get; init; }` props — one per Entity field required at creation AND not auto-populated.
 - **Never includes** `Id`, `TenantId`, `CreationTime`, `CreatorId`, `ConcurrencyStamp`, or any audit field — ABP populates these.
-- Enum-typed fields use the Domain.Shared enum type — no string fields for states.
-- No validation attributes (`[Required]`, `[MaxLength]`). Validation is the Validator's job.
-- Nullable-reference-type annotations honest to requirement: required fields use non-nullable types, optional fields use nullable.
+- Enum-typed fields use Domain.Shared enum type — no string fields for states.
+- No validation attributes (`[Required]`, `[MaxLength]`) — that's the validator's job.
+- Nullable annotations honest: required fields non-nullable, optional nullable.
 
 ### `Update<Entity>Dto`
 
-- Same as Create, plus:
-  - `public Guid Id { get; init; }`
-  - `public string? ConcurrencyStamp { get; init; }`
-- Covers every **mutable** field on the Entity page — not necessarily every field. Immutable-post-creation fields (e.g., creation timestamp, immutable natural key) are excluded.
+Same as Create plus `public Guid Id { get; init; }` and `public string? ConcurrencyStamp { get; init; }`. Covers every **mutable** Entity field — not necessarily every field. Immutable-post-creation fields excluded.
 
 ### `Get<Entity>ListDto`
 
-- Extends `PagedAndSortedResultRequestDto` when the Query page says `paged: true`.
-- Adds optional filter properties per the Query's `filter_fields`, all `{ get; init; }` and all nullable.
-- `Sorting` property is inherited from the base when paged — the AppService interprets it via explicit-switch (default) or `System.Linq.Dynamic.Core` (only if CLAUDE.md opts in).
+Extends `PagedAndSortedResultRequestDto` when Query says `paged: true`. Optional filter properties per Query's `filter_fields`, all `{ get; init; }` and nullable. `Sorting` inherited from base; AppService interprets per `sorting_strategy` (default dynamic-expression).
 
-## Output DTO rules
+## Output DTOs
 
 ### `<Entity>Dto`
 
 - Namespace `<Ns>.<Feature>.Dtos`.
-- Inherits `EntityDto<Guid>` or `FullAuditedEntityDto<Guid>` depending on what the FS page exposes.
-- Properties use `{ get; set; }` — ABP serialization and Mapperly both write to these.
-- Exposes `Guid? TenantId` only if the FS page says it should be exposed (some back-office features expose it, most don't).
-- Enum-typed fields use the Domain.Shared enum — JSON serialization to camelCase strings happens globally via `JsonStringEnumConverter`.
-- Collection-valued properties on the root aggregate are exposed as `IReadOnlyCollection<<Child>Dto>` or as explicit nested DTOs — never as the domain types.
+- Inherits `EntityDto<Guid>` or `FullAuditedEntityDto<Guid>` per FS exposure.
+- `{ get; set; }` — ABP serialization and Mapperly write to these.
+- Exposes `Guid? TenantId` only if FS says it should be exposed (rare; some back-office features).
+- Enum-typed fields use Domain.Shared enum — JSON serialization to camelCase strings via global `JsonStringEnumConverter`.
+- Collection-valued root-aggregate properties exposed as `IReadOnlyCollection<<Child>Dto>` or explicit nested DTOs — never domain types.
 
-## FluentValidation validators
+## FluentValidation
 
-CLAUDE.md default `validation_library: FluentValidation`. The skill supports only FluentValidation as the primary validator library. `DataAnnotations` is not a replacement — it is a complement used only by ABP's built-in base validations (which this skill neither relies on nor contradicts).
+CLAUDE.md default `validation_library: FluentValidation`. Skill supports only FluentValidation as primary library. `DataAnnotations` is not a replacement.
 
 ### File layout
 
 - Namespace `<Ns>.<Feature>.Validators`.
-- One file per input DTO: `Create<Entity>Validator.cs`, `Update<Entity>Validator.cs`, and per-Query filter validator when the FS page declares filter constraints.
+- One file per input DTO: `Create<Entity>Validator.cs`, `Update<Entity>Validator.cs`, plus per-Query filter validator when FS declares filter constraints.
 - `public class <n> : AbstractValidator<<TDto>>`.
 
 ### Construction
 
-- Constructor takes `IStringLocalizer<<Feature>Resource> localizer`, stored in a private readonly field.
-- Rules declared in the constructor body:
-  ```
-  RuleFor(x => x.Name)
-      .NotEmpty().WithMessage(localizer[<Feature>Constants.ErrorMessages.NameRequired])
-      .MaximumLength(<Feature>Constants.FieldLengths.NameMax)
-      .WithMessage(localizer[<Feature>Constants.ErrorMessages.NameTooLong]);
-  ```
-  (Synthesizer emits equivalent C# without a fence.)
+Constructor takes `IStringLocalizer<<Feature>Resource> localizer`, stored in private readonly field. Rules in ctor body:
+
+```csharp
+RuleFor(x => x.Name)
+    .NotEmpty().WithMessage(localizer[<Feature>Constants.ErrorMessages.NameRequired])
+    .MaximumLength(<Feature>Constants.FieldLengths.NameMax)
+    .WithMessage(localizer[<Feature>Constants.ErrorMessages.NameTooLong]);
+```
 
 ### Rules
 
-- Reference `<Feature>Constants.*` for every numeric bound, regex, and allowed-value list — never inline magic numbers.
+- Reference `<Feature>Constants.*` for every numeric bound, regex, allowed-value list — never inline magic numbers.
 - Reference `<Feature>Constants.ErrorMessages.*` for every `WithMessage(...)` — never inline text.
-- Use FluentValidation's built-in validators (`NotEmpty`, `MaximumLength`, `GreaterThan`, `Matches`, `When`, `Must`) to keep rules declarative.
-- Cross-field rules use `.Must((dto, value) => ...)` with a `WithMessage` pointing to a dedicated error key.
-- Async rules (database uniqueness checks) are a sign the check belongs in the aggregate or domain service — prefer to keep validators synchronous and declarative. Async validators are permitted only when the FS page explicitly declares a pre-write uniqueness check.
+- Use built-in validators (`NotEmpty`, `MaximumLength`, `GreaterThan`, `Matches`, `When`, `Must`).
+- Cross-field rules: `.Must((dto, value) => ...).WithMessage(...)` with dedicated error key.
+- Async rules (DB uniqueness checks) usually belong in aggregate or domain service. Permitted only when FS explicitly declares pre-write uniqueness check.
 
 ### DI registration
 
-Module `<Feature>ApplicationModule.ConfigureServices` includes exactly one:
+`<Feature>ApplicationModule.ConfigureServices` includes:
 
-```
+```csharp
 context.Services.AddValidatorsFromAssembly(typeof(<Feature>ApplicationModule).Assembly);
 ```
 
-(The synthesizer dedupes — if an `AddValidatorsFromAssembly` call already exists, it leaves the file unchanged.)
+Synthesizer dedupes — if call already exists, leaves file unchanged.
 
-### ABP pipeline integration
+### ABP pipeline
 
-ABP's AppService pipeline runs registered FluentValidation validators automatically when the method parameter has a matching validator. No manual `validator.ValidateAsync(...)` call in AppService methods.
+ABP's AppService pipeline runs registered FluentValidation validators automatically when method parameter has matching validator. No manual `validator.ValidateAsync(...)` in AppService methods.
 
-## Exposure of localization to validators
+## Localization injection
 
-The validator injects `IStringLocalizer<<Feature>Resource>`. It does not inject `IStringLocalizerFactory` or a generic `IStringLocalizer`. This ties the validator to its feature's resource file and prevents cross-feature key leakage.
+Validator injects `IStringLocalizer<<Feature>Resource>` — not `IStringLocalizerFactory` or generic `IStringLocalizer`. Ties validator to its feature's resource and prevents cross-feature key leakage.
 
 ## Anti-patterns the synthesizer refuses
 
 - `[Required]` / `[MaxLength]` attributes on DTO properties (redundant with FluentValidation).
-- `public string Name { get; set; } = string.Empty;` (mutable with default) — use `public required string Name { get; init; }` instead.
-- `WithMessage("Name is required")` (hardcoded English) — synthesizer refuses to emit this.
-- Async-awaiting an EF query inside a validator unless the FS page explicitly declares a unique-field check (flagged as warning if it does).
+- `public string Name { get; set; } = string.Empty;` on input DTO — use `public required string Name { get; init; }`.
+- `WithMessage("Name is required")` (hardcoded English).
+- Async-awaiting EF query inside validator unless FS declares unique-field check.
 
 ## Complex DTO composition
 
-When an input DTO contains a nested DTO (e.g., `CreateOrderDto` has `List<CreateOrderLineDto> Lines`), each nested DTO gets its own validator, and the parent validator chains:
+Nested input DTO (e.g., `CreateOrderDto` has `List<CreateOrderLineDto> Lines`) → each nested DTO gets its own validator; parent chains:
 
-```
+```csharp
 RuleFor(x => x.Lines).NotEmpty().WithMessage(localizer[ErrorMessages.LinesRequired]);
-RuleForEach(x => x.Lines).SetValidator(lineValidator);   // lineValidator injected
+RuleForEach(x => x.Lines).SetValidator(lineValidator);
 ```
 
-The Order and OrderLine validators are both registered via `AddValidatorsFromAssembly`.
+Both validators registered via `AddValidatorsFromAssembly`.

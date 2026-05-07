@@ -40,6 +40,9 @@ For <3 issues, sequential is fine.
 
 ```
 {
+  "phase_id": "phase-2",
+  "consumes_phase_id": "phase-1",
+  "consumes_secondary_phase_ids": [],
   "project_id": "<id>",
   "milestone_id": <int>,
   "milestone_title": "<title>",
@@ -47,6 +50,8 @@ For <3 issues, sequential is fine.
   "scratch_dir": "<path>"
 }
 ```
+
+If `consumes_phase_id != "phase-1"`, halt per the Phase Envelope Contract in SKILL.md. This guards against being dispatched out of order or by a "do everything" mega-agent.
 
 ## Responsibility
 
@@ -119,6 +124,8 @@ For <3 issues, sequential is fine.
 
 ```
 {
+  "phase_id": "phase-2",
+  "produced_by": "frs-retriever",
   "milestone": {
     "id": <int>,
     "title": "<title>",

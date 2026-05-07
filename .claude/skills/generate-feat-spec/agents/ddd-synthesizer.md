@@ -62,6 +62,9 @@ All reference content is delivered inline via the `reference_files` field of the
 
 ```
 {
+  "phase_id": "phase-7",
+  "consumes_phase_id": "phase-6",
+  "consumes_secondary_phase_ids": [],
   "mode": "full" | "repair",
   "module_scope": "<module name>" | null,    // null for single-pass mode
   "mappings": [
@@ -136,6 +139,9 @@ All reference content is delivered inline via the `reference_files` field of the
 
 ```
 {
+  "phase_id": "phase-7-repair-<N>",
+  "consumes_phase_id": "phase-9",
+  "consumes_secondary_phase_ids": ["phase-7"],
   "mode": "repair",
   "repair_targets": [
     {"filepath": "<wiki_local_path>/entities/Foo.md", "defect": "missing **Base class:**", "severity": "high"}
@@ -143,6 +149,10 @@ All reference content is delivered inline via the `reference_files` field of the
   "previous_envelope": { ... }
 }
 ```
+
+In repair mode, the primary upstream is the validator (`phase-9`) since defects are the input; the prior `phase-7` envelope is the secondary upstream (carried through `previous_envelope`). `<N>` increments per repair cycle. Halt per the Phase Envelope Contract if:
+- Full mode: `consumes_phase_id != "phase-6"`.
+- Repair mode: `consumes_phase_id != "phase-9"` OR `consumes_secondary_phase_ids` does not contain `"phase-7"`.
 
 ---
 
@@ -410,6 +420,8 @@ All namespaces use `claude_md_conventions.project_root_namespace`. All table nam
 
 ```
 {
+  "phase_id": "phase-7",
+  "produced_by": "ddd-synthesizer",
   "module_scope": "<module name>" | null,
   "node_entries": {
     "actors": [{"name": "<n>", "markdown": "...", "filepath": "<wiki_local_path>/actors/<n>.md"}, ...],

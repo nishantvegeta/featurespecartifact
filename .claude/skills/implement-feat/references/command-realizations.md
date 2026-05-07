@@ -1,148 +1,341 @@
-# Command Realization Types
+# Command Realizations
 
-A Command in the FS can be realized as any of six execution models. This file is the authoritative guide for how each type is detected, when each is appropriate, and what the synthesizer emits for each. The reconciler consults this when matching candidates; the planner consults this when emitting descriptors.
+A Command's **execution model** decides which artifact kind it becomes:
 
-## The six types
-
-| Type | Invocation style | Where it lives | Authorization |
-|---|---|---|---|
-| `AppService` | HTTP request (synchronous, user-invoked) | `<Ns>.Application/<Feature>/<Feature>AppService.cs` | `[Authorize(<permission>)]` per method; `CurrentUser` populated |
-| `BackgroundJob` | Enqueued on a queue, processed later | Worker/BackgroundJobs project | System identity; no `CurrentUser` |
-| `HostedService` | Long-running loop inside the host process | HTTP API Host or dedicated HostedServices project | System identity; scoped per iteration |
-| `HubMethod` | SignalR (or similar) real-time client call | Hubs project | `[Authorize]` on hub class + per-method when needed |
-| `EventHandler` | Fired in response to a domain or integration event | Application or dedicated EventHandlers project | System identity; `CurrentUser` may or may not be populated depending on dispatcher |
-| `CliCommand` | Command-line invocation | CLI host project | Whatever the CLI authenticates as; typically operator or service account |
+| Realization | Project (default) | Trigger |
+|---|---|---|
+| `AppService` | `<Ns>.Application` | HTTP-invoked, user-driven |
+| `BackgroundJob` | `<Ns>.BackgroundJobs` (or auxiliary worker) | Scheduled / queued |
+| `HostedService` | `<Ns>.Worker` (or HTTP API host) | Long-running loop |
+| `HubMethod` | `<Ns>.Hubs` | Real-time push |
+| `EventHandler` | `<Ns>.Application` (local) / `<Ns>.EventHandlers` (distributed) | Reaction to event |
+| `CliCommand` | `cli_host_project` from CLAUDE.md | Operator/admin invocation |
 
 ## Selection rules
 
-The Feat Spec page's `**Execution model:**` field is authoritative. If absent, the reconciler infers from:
+1. **FS Command page declares `**Execution model:**`** → use it.
+2. **No declaration** → reconciler infers per heuristic; if ambiguous, escalates as `realization_question`.
+3. **Repo evidence overrides defaults** — if scout shows `<Ns>.Worker` exists, prefer Worker over `<Ns>.BackgroundJobs`.
 
-### 1. Command name patterns
+## Heuristic table (when FS declaration absent)
 
-| Name pattern | Likely realization |
+| Command name pattern | Realization |
 |---|---|
-| `Create*`, `Update*`, `Delete*`, `Approve*`, `Submit*`, `Get*`, `List*` | `AppService` |
-| `Scheduled*`, `Nightly*`, `Daily*`, `Recurring*`, `EveryMinute*` | `BackgroundJob` |
-| `Process*Queue*`, `Monitor*`, `Watch*`, `Pump*` | `HostedService` |
-| `Broadcast*`, `Notify*`, `Push*`, `SendToAllAsync` | `HubMethod` |
-| `On*Async`, `Handle*`, `*Handler` | `EventHandler` |
-| `Run*`, `Migrate*`, `Import*`, `Export*` (invoked offline) | `CliCommand` |
+| `Scheduled*`, `Nightly*`, `Recurring*`, `Daily*`, `Weekly*`, `Cron*` | BackgroundJob |
+| `*Handler`, `Handle*Async`, `On*Async` | EventHandler |
+| `Broadcast*`, `Notify*`, `Push*` | HubMethod |
+| FS prose mentions "loop", "watch", "poll" | HostedService |
+| FS mentions CLI/console invocation | CliCommand |
+| Verb+noun invoked by user | AppService |
 
-### 2. FS prose hints
+## Infrastructure prerequisites
 
-- "invoked by the user via the UI" → `AppService`.
-- "scheduled every N minutes/hours" → `BackgroundJob`.
-- "runs continuously" → `HostedService`.
-- "pushed to connected clients" → `HubMethod`.
-- "triggered when <event> happens" → `EventHandler`.
-- "run from the command line" → `CliCommand`.
-
-### 3. Ambiguity escalation
-
-If the name and prose don't unanimously point to one realization, `AskUserQuestion` per Command:
-
-> How is Command `<n>` invoked?
-> Options: AppService / BackgroundJob / HostedService / HubMethod / EventHandler / CliCommand
-
-The user's selection becomes authoritative and is recorded in the implementation report.
-
-## Infrastructure prerequisites (by realization)
-
-| Realization | Prerequisite | Where verified |
+| Realization | Prereq | Source |
 |---|---|---|
-| `AppService` | Application project present | `solution-inspector` |
-| `BackgroundJob` | Worker project OR ABP BackgroundJobs package in Application project | `repo-scout.supported_realizations.BackgroundJob` |
-| `HostedService` | Any `IHostedService` implementation in the solution (signal) OR explicit HostedServices project | `repo-scout.supported_realizations.HostedService` |
-| `HubMethod` | Hubs project with at least one `Hub`-derived class, AND `realtime_library` declared in CLAUDE.md | `repo-scout.supported_realizations.HubMethod` |
-| `EventHandler` | ABP LocalEventBus / DistributedEventBus registered (signal: any `ILocalEventHandler<>` in the solution) | `repo-scout.supported_realizations.EventHandler` |
-| `CliCommand` | `cli_host_project` declared in CLAUDE.md AND project exists | `repo-scout.supported_realizations.CliCommand` |
+| AppService | none (always supported) | `scout.scaffolding.projects.application` |
+| BackgroundJob | `background-job` library declared in CLAUDE.md | `scout.supported_realizations.BackgroundJob` |
+| HostedService | host project capable of `services.AddHostedService` | `scout.supported_realizations.HostedService` |
+| HubMethod | SignalR library + Hubs project | `scout.supported_realizations.HubMethod` |
+| EventHandler | event bus library declared | `scout.supported_realizations.EventHandler` |
+| CliCommand | `cli_host_project` set in CLAUDE.md | `scout.supported_realizations.CliCommand` |
 
-Missing prerequisite + Command needs that realization → reconciler emits `CONFLICT` code `REALIZATION_INFRA_MISSING`. User resolves at Phase 7.
+Missing prereq + non-AppService realization assigned → `REALIZATION_INFRA_MISSING` Conflict.
 
-## Default delegation pattern
+## Default-delegation rule
 
-All realizations beyond `AppService` delegate the actual business operation to either:
-- An `AppService` method on the Application layer, OR
-- A Domain Service method.
+When realization is `BackgroundJob` / `HostedService` / `HubMethod` / `EventHandler` / `CliCommand` AND scout reports the realization-specific project exists, prefer it. Else fall back to the appropriate ABP-default project (`<Ns>.BackgroundJobs`, `<Ns>.Application` for handlers, etc.). Falling back when `auxiliary_projects` was explicitly declared → warning `AUXILIARY_FALLBACK`.
 
-**Why:** Authorization, validation, and transaction boundaries live with the AppService/Domain Service. Workers, hubs, and handlers add dispatch mechanics on top of the canonical implementation.
+## Idempotency
 
-**Consequence:** A BackgroundJob is almost never a standalone unit. It's a thin adapter that constructs its args, resolves its target service, and calls a method. The business logic lives in the service it calls.
+`BackgroundJob` and `EventHandler` MUST be idempotent — duplicate dispatch must not corrupt state. Implementations check current aggregate state before applying changes:
 
-### Exception: pure infrastructure jobs
+```csharp
+if (entity.Status == LoanStatus.Approved) return;     // already processed
+entity.Approve(...);
+```
 
-If a Command is purely infrastructural (e.g., "cleanup expired sessions from Redis"), it may live entirely in the worker with no AppService counterpart. In that case the FS page declares `**Execution model:** BackgroundJob (standalone)` and the skill emits only the job class, no AppService.
+`HostedService` similarly checks idempotency on each loop iteration.
 
-## Authorization patterns
+The skill emits this guard pattern when the FS Command's postcondition declares an idempotent end state. If FS doesn't declare idempotency for an event-driven Command, planner emits warning `IDEMPOTENCY_NOT_DECLARED`.
 
-### AppService
+---
 
-Every method has `[Authorize(<Feature>Permissions.<Entity>.<Op>)]`. Tenant guard after every entity load. `CurrentUser.Id` available.
+## Templates
 
 ### BackgroundJob
 
-Runs as the system. `CurrentUser` is not reliably populated. Authorization happens on the delegate target — the AppService or Domain Service the job calls. Inside the job, do not re-check `[Authorize]` (no `HttpContext`).
+`<Worker>/Jobs/<Feature>/<CommandName>Job.cs`:
 
-If the delegate target's `[Authorize(...)]` attribute would reject system invocation, the job must use `AuthorizationService.IsGrantedAsync(...)` with `ClaimsPrincipal.System()`, OR the target method must be invoked via a non-AppService path (a Domain Service method, typically).
+```csharp
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Volo.Abp.BackgroundJobs;
+using Volo.Abp.DependencyInjection;
+
+namespace <Ns>.<Feature>.Jobs;
+
+public class <Command>Job : AsyncBackgroundJob<<Command>Args>, ITransientDependency
+{
+    private readonly I<Feature>Service _service;
+    private readonly ILogger<<Command>Job> _logger;
+
+    public <Command>Job(I<Feature>Service service, ILogger<<Command>Job> logger)
+    {
+        _service = service;
+        _logger = logger;
+    }
+
+    public override async Task ExecuteAsync(<Command>Args args)
+    {
+        _logger.LogInformation("{Job} started for {EntityId}", nameof(<Command>Job), args.EntityId);
+
+        try
+        {
+            await _service.<DomainMethod>Async(args.EntityId);
+            _logger.LogInformation("{Job} completed for {EntityId}", nameof(<Command>Job), args.EntityId);
+        }
+        catch (System.Exception ex)
+        {
+            // CRC-A4: log only, never re-throw — re-throw would crash the worker
+            _logger.LogError(ex, "{Job} failed for {EntityId}", nameof(<Command>Job), args.EntityId);
+        }
+    }
+}
+```
+
+`<Command>Args.cs`:
+
+```csharp
+namespace <Ns>.<Feature>.Jobs;
+
+public class <Command>Args
+{
+    public Guid EntityId { get; set; }
+    // additional args from FS Command input
+}
+```
 
 ### HostedService
 
-Same as BackgroundJob — system identity, scope-per-iteration. Create a scope with `IServiceScopeFactory.CreateScope()` inside each iteration to ensure scoped dependencies (DbContext, UoW) reset between runs.
+`<Project>/HostedServices/<Feature>/<CommandName>HostedService.cs`:
 
-### HubMethod
+```csharp
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-Hub class declares `[Authorize]` (user must be authenticated to connect). Per-method `[Authorize(<permission>)]` is applied the same way as AppService methods for methods that require a specific permission beyond connection.
+namespace <Ns>.<Feature>.HostedServices;
 
-`CurrentUser.Id` is populated inside hub methods just like AppService methods.
+public class <Command>HostedService : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<<Command>HostedService> _logger;
+
+    private static readonly System.TimeSpan Interval = System.TimeSpan.FromMinutes(5);
+
+    public <Command>HostedService(IServiceScopeFactory scopeFactory, ILogger<<Command>HostedService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("{Service} starting", nameof(<Command>HostedService));
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<I<Feature>Service>();
+                await service.<DomainMethod>Async(stoppingToken);
+            }
+            catch (System.Exception ex)
+            {
+                // CRC-A4: log only, never re-throw — re-throw kills the host
+                _logger.LogError(ex, "{Service} iteration failed", nameof(<Command>HostedService));
+            }
+
+            await Task.Delay(Interval, stoppingToken);
+        }
+    }
+}
+```
+
+DI registration (host's `ConfigureServices`):
+
+```csharp
+context.Services.AddHostedService<<Command>HostedService>();
+```
+
+### Hub class (new)
+
+`<Hubs>/<Feature>Hub.cs`:
+
+```csharp
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
+
+namespace <Ns>.<Feature>;
+
+[Authorize]
+public class <Feature>Hub : Hub
+{
+    private readonly I<Feature>Service _service;
+    private readonly ILogger<<Feature>Hub> _logger;
+
+    public <Feature>Hub(I<Feature>Service service, ILogger<<Feature>Hub> logger)
+    {
+        _service = service;
+        _logger = logger;
+    }
+
+    public async Task <CommandName>(<Args> args)
+    {
+        _logger.LogInformation("{Method} invoked by {ConnectionId}",
+            nameof(<CommandName>), Context.ConnectionId);
+
+        try
+        {
+            await _service.<DomainMethod>Async(args);
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "{Method} failed", nameof(<CommandName>));
+            throw;    // hubs throw — client receives the exception
+        }
+    }
+}
+```
+
+`MapHub` registration in host (if not already present):
+
+```csharp
+app.MapHub<<Feature>Hub>("/hubs/<feature-kebab>");
+```
+
+### Hub method edit (existing hub)
+
+`update_edit` action with anchor on the closing `}` of the existing class:
+
+```csharp
+public async Task <NewCommandName>(<Args> args)
+{
+    _logger.LogInformation("{Method} invoked by {ConnectionId}",
+        nameof(<NewCommandName>), Context.ConnectionId);
+
+    try
+    {
+        await _service.<DomainMethod>Async(args);
+    }
+    catch (System.Exception ex)
+    {
+        _logger.LogError(ex, "{Method} failed", nameof(<NewCommandName>));
+        throw;
+    }
+}
+}    // <-- existing closing brace anchor
+```
 
 ### EventHandler
 
-Depends on the event dispatcher. `ILocalEventHandler<T>` runs in-process, possibly under the originating user's context; `IDistributedEventHandler<T>` runs across processes with the dispatcher's identity. In practice, treat event handlers as system-identity unless the event itself carries the originating user ID as payload.
+`<Project>/EventHandlers/<Feature>/<CommandName>Handler.cs`:
 
-### CliCommand
+```csharp
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Volo.Abp.DependencyInjection;
+using Volo.Abp.EventBus;
 
-The CLI host authenticates however the project declares — typically with a service account or machine credential. Permissions are enforced by the delegate target.
+namespace <Ns>.<Feature>.EventHandlers;
 
-## Idempotency requirements
+public class <Command>Handler :
+    ILocalEventHandler<<EventType>>,
+    ITransientDependency
+{
+    private readonly I<Feature>Service _service;
+    private readonly ILogger<<Command>Handler> _logger;
 
-Non-AppService realizations execute without user supervision. Idempotency is required:
+    public <Command>Handler(I<Feature>Service service, ILogger<<Command>Handler> logger)
+    {
+        _service = service;
+        _logger = logger;
+    }
 
-- **BackgroundJob:** the queue may redeliver on failure. Jobs must be idempotent — either by natural key (e.g., "accrue interest for account X on day Y" is idempotent on (X, Y)) or by idempotency key stored in the aggregate.
-- **HostedService:** the loop runs forever. Skipping an iteration because the previous one succeeded is trivial; the danger is double-execution under failover. Use a distributed lock (Redlock, blob lease) or a DB-level "last processed" marker.
-- **HubMethod:** clients may retry on network failure. Server methods should be idempotent on the payload.
-- **EventHandler:** events may be redelivered by the bus. Handlers must be idempotent by event ID or aggregate state check.
-- **CliCommand:** the operator may rerun a failed command. Commands should be re-runnable without corrupting state.
+    public async Task HandleEventAsync(<EventType> eventData)
+    {
+        _logger.LogInformation("{Handler} handling {Event} for {EntityId}",
+            nameof(<Command>Handler), nameof(<EventType>), eventData.EntityId);
 
-The synthesizer emits idempotency scaffolding (comments + TODO markers) but the actual idempotency logic is business-specific and is surfaced in the implementation report as a manual follow-up.
+        try
+        {
+            await _service.<DomainMethod>Async(eventData.EntityId);
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "{Handler} failed for {EntityId}",
+                nameof(<Command>Handler), eventData.EntityId);
+            throw;    // event bus retry/DLQ on throw
+        }
+    }
+}
+```
 
-## Scheduling (for BackgroundJob)
+ABP auto-discovers via `ITransientDependency` + `ILocalEventHandler<T>` — no DI line needed.
 
-The skill **does not** emit scheduling code. Emitting a `RecurringJob.AddOrUpdate` or a cron registration is deployment policy, not code-generation.
+### CLI Command
 
-The final implementation report lists the job classes and says: "Register these jobs for scheduling in your deployment pipeline (ABP BackgroundJob Manager, Hangfire dashboard, or equivalent)."
+`<Cli>/Commands/<Feature>/<CommandName>Command.cs` — class structure varies per `cli_host_project` base. Pattern:
 
-## Hub registration (for HubMethod)
+```csharp
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-If the hub class is `CREATE_NEW`, the HTTP API host's `MapHub` chain gets an edit adding the new hub. If the hub is `UPDATE_IN_PLACE` (adding methods to existing hub), no host-registration edit is needed.
+namespace <Ns>.Cli.Commands.<Feature>;
 
-## Reconciler matching rules (reminder)
+public class <Command>Command : <CliBase>
+{
+    private readonly I<Feature>Service _service;
+    private readonly ILogger<<Command>Command> _logger;
 
-- `AppService` Command matches only `appservice-impl` candidates with `appservice-interface` counterparts.
-- `BackgroundJob` Command matches only `background-job` candidates.
-- `HostedService` Command matches only `hosted-service` candidates.
-- `HubMethod` Command matches methods on `hub` candidates — class itself may pre-exist (UPDATE adds the method); if the hub doesn't exist, CREATE the hub too.
-- `EventHandler` Command matches only `event-handler` candidates.
-- `CliCommand` Command matches only `cli-command` candidates.
+    public <Command>Command(I<Feature>Service service, ILogger<<Command>Command> logger)
+    {
+        _service = service;
+        _logger = logger;
+    }
 
-Cross-type name collisions (`AppService` Command named identically to an existing `background-job` class) are flagged as `MIXED_REALIZATION_AMBIGUITY` by the scout and surfaced by the reconciler as `CONFLICT`.
+    public override async Task<int> ExecuteAsync(<Args> args)
+    {
+        _logger.LogInformation("{Command} invoked with {@Args}", nameof(<Command>Command), args);
 
-## When the FS changes realization for an existing artifact
+        try
+        {
+            await _service.<DomainMethod>Async(args);
+            return 0;
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "{Command} failed", nameof(<Command>Command));
+            return 1;
+        }
+    }
+}
+```
 
-Example: an existing `SubmitApplicationAppService.SubmitAsync` method is classified by the FS as `BackgroundJob` in a later revision. The reconciler flags this as `CONFLICT` code `REALIZATION_MISMATCH` and surfaces to the user:
+Adjust base class and method signature to match `cli_host_project`'s declared CLI framework. Skill reads `cli_host_project`'s pattern from existing commands in scout output.
 
-Suggested resolutions:
-1. Create a new `SubmitApplicationJob` and keep the existing AppService method (dual invocation).
-2. Deprecate the AppService method and move logic to the job (requires `UPDATE_IN_PLACE` on AppService to call the job; out of this skill's scope if it implies call-site changes).
-3. Override the FS: keep realization as AppService.
+---
 
-The user picks; the skill proceeds with the chosen path.
+## Anti-patterns
+
+- BackgroundJob re-throwing exceptions → kills the worker
+- HostedService without `IServiceScopeFactory` → captured-scope DI bugs
+- Hub method without `[Authorize]` on the class → unauthenticated push
+- EventHandler swallowing exceptions silently → events never reach DLQ
+- CliCommand using `Console.WriteLine` instead of `_logger` → ungovernable output
+- Same Command name realized as both AppService and BackgroundJob → ambiguity at dispatch

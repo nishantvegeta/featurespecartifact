@@ -1,67 +1,91 @@
-# ABP Base Classes — Decision Reference
+# ABP Entity Base Classes
 
-Authoritative selection guide for entity base classes in the Domain layer. The `artifact-planner` and `artifact-synthesizer` consult this when emitting aggregate roots and child entities.
+Pick the right ABP base class. Wrong base = wrong audit fields, wrong soft-delete behaviour, wrong tenancy. Reconciler uses this for shape comparison; synthesizer uses it for `aggregate-root` / `child-entity` / `value-object` templates.
 
 ## Decision tree
 
 ```
-Is this class the root of the aggregate?
-├─ YES → Is the aggregate multi-tenant?
-│        ├─ YES → FullAuditedAggregateRoot<Guid>, IMultiTenant
-│        └─ NO  → FullAuditedAggregateRoot<Guid>
-└─ NO  → Is the entity audited independently of the root?
-         ├─ YES → FullAuditedEntity<Guid>
-         └─ NO  → Entity<Guid>
+Is it a Value Object (no identity, equality by content)?
+├── YES → ValueObject
+└── NO → Is it the root of an aggregate (commands target it)?
+        ├── YES → Aggregate Root
+        └── NO  → Child Entity inside an aggregate
 ```
 
-Value Objects are always `ValueObject` (from `Volo.Abp.Domain.Values`) — never an entity base.
+## Aggregate Root bases
 
-## Base class summary
-
-| Base | Provides | Use when |
-|---|---|---|
-| `AggregateRoot<TKey>` | Concurrency stamp, domain events holder | Root with no audit needs (rare) |
-| `AuditedAggregateRoot<TKey>` | CreationTime, CreatorId, LastModificationTime, LastModifierId | Root with create+modify audit, never soft-deleted |
-| `FullAuditedAggregateRoot<TKey>` | Everything in AuditedAggregateRoot + IsDeleted, DeleterId, DeletionTime | **Default for roots.** Includes soft delete. |
-| `Entity<TKey>` | Identity + equality | Child entity, no independent audit |
-| `AuditedEntity<TKey>` | Create+modify audit | Child entity that needs audit trail |
-| `FullAuditedEntity<TKey>` | Full audit including soft delete | Child that is individually soft-deletable |
-| `ValueObject` | Atomic-value equality | Immutable value with no identity |
-
-## Interface additions
-
-| Interface | Add when |
+| Base | Use when |
 |---|---|
-| `IMultiTenant` | CLAUDE.md declares `tenancy_model` AND the Entity page lists `IMultiTenant` in its interfaces field. Adds `Guid? TenantId { get; set; }`. |
-| `IHasConcurrencyStamp` | Automatic on `AggregateRoot<TKey>` subclasses — never declare manually. |
-| `ISoftDelete` | Automatic on `FullAudited*` bases — never declare manually. |
-| `IPassivable` | Entity page explicitly lists an "IsActive" field that is boolean and is toggled by a Command. Adds `bool IsActive { get; set; }`. |
-| `IHasExtraProperties` | **Forbidden by the skill.** Every field is explicit. |
+| `FullAuditedAggregateRoot<TKey>` | **default** — Created/Modified/Deleted audit + soft delete + concurrency stamp. Both ABP and most teams use this for new aggregates. |
+| `AuditedAggregateRoot<TKey>` | Audit + concurrency stamp; **no** soft delete. Pick only when FS explicitly says "hard delete only". |
+| `CreationAuditedAggregateRoot<TKey>` | CreationTime/CreatorId only. Rare — read-mostly aggregates that never modify post-create. |
+| `AggregateRoot<TKey>` | No audit at all. Almost never appropriate; only when FS marks aggregate as transient/log-like. |
+
+Skill default for new aggregate roots: **`FullAuditedAggregateRoot<Guid>`** unless FS overrides.
+
+## Child Entity bases
+
+| Base | Use when |
+|---|---|
+| `FullAuditedEntity<TKey>` | Default for child entities under an audited root. |
+| `AuditedEntity<TKey>` | Audit but no soft delete. |
+| `Entity<TKey>` | No audit, no soft delete. Rare — junction/link entities only. |
+
+Child entities are loaded via the parent aggregate's repository; they don't get their own `IRepository<T>`.
+
+## Tenancy interface
+
+Apply `IMultiTenant` (CRC-D2) **only when the aggregate is owned by a specific tenant**. Cross-tenant aggregates (Tenant configuration, system audit logs, billing-platform records) do NOT carry it.
+
+```csharp
+public class LoanApplication : FullAuditedAggregateRoot<Guid>, IMultiTenant
+{
+    public Guid? TenantId { get; private set; }    // nullable, ABP populates
+    // ...
+}
+```
+
+`TenantId` declared `Guid?` (nullable) — host-tenant data is stored with `null`. Setter `private` so only ABP and the aggregate's ctor set it.
+
+## Other ABP interfaces
+
+| Interface | Apply when FS says |
+|---|---|
+| `ISoftDelete` | aggregate retains records logically; "deleted" rows hidden by query filter |
+| `IPassivable` | aggregate has active/inactive toggle distinct from soft-delete |
+| `IHasModificationTime` | only modification timestamp needed without full audit |
+| `IHasExtraProperties` | aggregate accepts arbitrary key-value extension data |
+
+`IHasExtraProperties` is rarely declared on FS Entity pages. Do not add it unless FS explicitly mentions it. Adding it later is a non-breaking schema migration; adding it speculatively bloats the table.
 
 ## TKey rule
 
-Always `Guid` unless the Entity page explicitly states another key type. The skill does not support composite keys.
+Every aggregate root and child entity in this codebase uses `Guid` as primary key. Skill never emits `<int>` or `<long>`. If FS declares otherwise, the FS is wrong; raise a Conflict.
 
 ## Constructor pattern
 
-Every aggregate root and audited entity has exactly two constructors:
+ABP requires a parameterless protected constructor for EF Core. Skill emits:
 
-1. **Private parameterless constructor** — for EF Core materialization. Marked `private` (aggregate root) or `internal` (child entity).
-2. **Internal/private constructor with all required fields** — called by the `Builder.Build()` method (aggregate root) or by the aggregate root's domain method (child entity).
+```csharp
+public class LoanApplication : FullAuditedAggregateRoot<Guid>, IMultiTenant
+{
+    protected LoanApplication() { }    // EF only
 
-No public constructors. Creation goes through `Create(...)` factory or an aggregate-scoped domain method.
+    private LoanApplication(Guid id, ...) : base(id) { ... }    // private — only Builder/Create call
+
+    public static LoanApplication Create(...) { ... }            // factory; runs invariants
+}
+```
+
+The Builder pattern (`domain-layer.md`) wraps the private ctor.
 
 ## Backing collections
 
-Collections on an aggregate root are exposed as `IReadOnlyCollection<T>` and backed by a `private List<T>` field. Mutation happens only through domain methods on the aggregate.
+Child entities exposed as `IReadOnlyCollection<TChild>` from a private `List<TChild>`:
 
-Example declaration pattern (as description, not code fence):
+```csharp
+private readonly List<OrderLine> _lines = new();
+public IReadOnlyCollection<OrderLine> Lines => _lines.AsReadOnly();
+```
 
-`private readonly List<OrderLine> _lines;` backed field; `public IReadOnlyCollection<OrderLine> Lines => _lines.AsReadOnly();` exposed; `public void AddLine(...)` domain method appends to `_lines` after validation.
-
-## What never belongs on these bases
-
-- `ILocalEventBus` injection.
-- `DbContext` injection.
-- `IStringLocalizer` injection (aggregates throw `BusinessException` with codes; localization happens at the boundary).
-- Any HTTP, logging, or caching infrastructure.
+EF configures via `b.HasMany<OrderLine>("_lines")` referencing the backing field. AppService never writes to `_lines` directly — uses domain methods like `AddLine(...)`.

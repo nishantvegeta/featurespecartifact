@@ -1,105 +1,148 @@
 # Code Quality Gates
 
-Authoritative rules the `synthesizer` enforces while writing files and the `planner` checks during pre-flight. Every gate is regex-detectable on synthesized C#.
+Ten regex-based checks the synthesizer runs after every successful write and after every repair edit. Gate 1 ABORTS the entire phase. Gates 2–10 halt synthesis pending main-agent decision (revise / override / cancel).
 
-## 1. No controllers (abort condition)
+Reconciler runs the same checks as a **pre-flight** during planning so violations surface at Phase 5, not Phase 6.
 
-ABP auto-generates HTTP endpoints from AppService methods via `[RemoteService]` + `[Authorize]`. Any class inheriting `Controller`, `ControllerBase`, or carrying `[ApiController]` is an immediate halt. All HTTP entry points must be public methods on AppService classes.
+## Gate 1 — No controllers (ABORT)
 
-**Detect:** `class\s+\w+\s*:\s*(Controller|ControllerBase)\b` or `\[ApiController\]`.
+**Rule.** No file under `<src>/<Ns>.<Layer>/` defines `class \w+ : (Controller|ControllerBase)` or carries `[ApiController]`. AppServices + ABP automatic-routing are the HTTP entry point.
 
-## 2. Event publishing
+**Detection regex** (per `*.cs`):
+```
+^\s*(\[ApiController\]|public\s+(sealed\s+)?(partial\s+)?class\s+\w+\s*:\s*(Controller|ControllerBase))
+```
 
-`ILocalEventBus` is for intra-module loose-coupling only. Cross-aggregate orchestration goes through a `DomainService`. Cross-module flows go through a Domain Service or a deliberate `EventHandler` (still in Application, not Domain).
+**Violation handling.** Hit → `halt: "QUALITY_ABORT_CONTROLLER"`. Phase aborts. Synthesizer surfaces the snippet and stops; main agent reports `CONTROLLER_DETECTED` and unwinds.
 
-**Forbidden in Domain layer:** any reference to `ILocalEventBus`, `IDistributedEventBus`, `PublishAsync`.
-**In Application layer:** flag for review when `ILocalEventBus.PublishAsync` appears alongside a cross-aggregate write.
+## Gate 2 — Domain layer publishes no events
 
-## 3. Exception handling
+**Rule.** Domain layer files (`<Ns>.Domain/**/*.cs`) must not reference `ILocalEventBus`, `IDistributedEventBus`, or call `PublishAsync(`. Cross-aggregate orchestration uses Domain Services; cross-module reactions use an Application-layer EventHandler.
 
-Every async method in AppService / BackgroundJob / HostedService / Hub realizations is wrapped in try-catch-translate. Specific catches first (`EntityNotFoundException`, `BusinessException`, `AbpAuthorizationException`), then domain exceptions, then a final catch that logs context and re-throws. No bare async method bodies.
+**Detection regex** (per `<Ns>.Domain/**/*.cs`):
+```
+ILocalEventBus|IDistributedEventBus|PublishAsync\(
+```
 
-**BackgroundJob / HostedService:** catch must NOT re-throw — log and continue (workers must survive single-iteration failure).
+**Violation.** halt `QUALITY_VIOLATION` (gate 2).
 
-## 4. Naming conventions
+## Gate 3 — Exception handling discipline (CRC-A4)
 
-| Artifact | Pattern |
-|---|---|
-| AppService | `<Context><AggregateRoot>AppService` |
-| AppService interface | `I<Context><AggregateRoot>AppService` |
-| Output DTO | `<Entity>Dto`, `<Entity>ListDto`, `<Entity>DetailDto` |
-| Input DTO | `Create<Entity>Dto`, `Update<Entity>Dto` |
-| Filter DTO | `Get<Entity>ListInput` |
-| Validator | `<Dto>Validator` |
-| Permission constants | `<Feature>Permissions.<Aggregate>.<Action>` |
-| Domain Service | `<Context><AggregateRoot>Service` or `<Context><BoundedContext>DomainService` |
-| BackgroundJob | `<CommandName>Job` |
-| HostedService | `<CommandName>HostedService` |
-| Hub | `<Feature>Hub` |
-| EventHandler | `<CommandName>Handler` |
+**Rule.** Use try-catch ONLY for:
+- External service calls (HTTP, message queue, etc.)
+- Retry logic
+- Domain-specific validations requiring translation
+- BackgroundJobs / HostedServices (never crash the worker)
 
-Bounded-context prefix (e.g. `Lc` for Checklist module) is mandatory when CLAUDE.md declares one.
+Standard AppService CRUD does NOT need try-catch — ABP's exception middleware handles it. Wrapping every method in try-catch is an anti-pattern.
 
-**Never:** bare `Service`, `Manager`, `Helper`; never `Controller*` of any form.
+**Detection.** Per AppService method body, count try-catch blocks. If method body has try-catch AND the catch block does not invoke external service, retry, translate to BusinessException, OR the file is not Background/HostedService → flag as gate 3 violation.
 
-## 5. Dynamic sorting
+For BackgroundJobs/HostedServices: catch must **log and not re-throw** (else the worker crashes).
 
-No `switch(input.SortBy)` in any AppService. Sort fields go through an `IQueryable<T>` ordering expression — typically `Dynamic LINQ` (`.OrderBy(input.Sorting)`) or a dedicated `SortExpressionBuilder` that maps a whitelist of allowed field names to expressions.
+**Violation.** halt `QUALITY_VIOLATION` (gate 3).
 
-**Detect:** `switch\s*\(\s*\w*[Ss]ort` inside an AppService method.
+## Gate 4 — Naming convention
 
-## 6. Data mapping efficiency (select-before-fetch)
+**Rule.** Generated class names follow `<Context><Aggregate><Suffix>` per CLAUDE.md `naming_convention`. Where:
 
-Projection happens inside the `IQueryable` chain, before materialization. `.Select(x => MapToDto(x))` (or Mapperly projection) precedes `.ToListAsync()` / `.FirstOrDefaultAsync()`.
+- `<Context>` = bounded-context prefix (e.g. `LoanApplicationManagement` → `LoanApp`)
+- `<Aggregate>` = aggregate root name
+- `<Suffix>` = role suffix (`AppService`, `Dto`, `Validator`, `Mapper`, `Configuration`, `DomainService`, `Job`, `Hub`, etc.)
 
-**Anti-pattern:** `var entities = await query.ToListAsync(); var dtos = entities.Select(...)`.
-**Correct:** `var dtos = await query.Select(x => new <Entity>Dto { ... }).ToListAsync();`.
+**Detection.** Walk every newly-created class. Check class name starts with bounded-context prefix from CLAUDE.md.
 
-For detail queries, prefer `await repository.GetQueryableAsync()` + filter + project + `FirstOrDefaultAsync()` over `await repository.GetAsync(id)`.
+**Violation.** halt `QUALITY_VIOLATION` (gate 4).
 
-## 7. Soft-delete handling
+## Gate 5 — Dynamic sorting (no switch)
 
-ABP applies soft-delete via `ISoftDelete` and `IDataFilter`. Use `repository.DeleteAsync(entity)` — never `entity.IsDeleted = true`, `entity.DeleterId = ...`, `entity.DeletedTime = ...`. Queries on `ISoftDelete` entities automatically exclude deleted rows.
+**Rule.** AppService `GetListAsync` methods sort via `ApplyDynamicSorting(input.Sorting, ...)` extension. No `switch (input.Sorting)` blocks.
 
-**Forbidden:** explicit assignment of `IsDeleted`, `DeleterId`, `DeletedTime` in domain code.
-**Forbidden:** `HasQueryFilter(x => !x.IsDeleted)` — ABP handles it.
+**Detection regex** (per `appservice-impl` files):
+```
+switch\s*\(\s*\w*[Ss]ort
+```
 
-## 8. EF Core configuration
+**Violation.** halt `QUALITY_VIOLATION` (gate 5).
 
-One `ModelBuilder` extension method per module (`ConfigureXyzModule`) instead of scattered `IEntityTypeConfiguration<T>` classes. The extension is called from `DbContext.OnModelCreating`. All entity configurations for the feature live inside that one method.
+## Gate 6 — Select before fetch
 
-**Index naming:** never `.HasName(...)`. Let EF auto-generate.
+**Rule.** AppServices project to DTO **inside the LINQ query chain**, before materialization. No `.ToListAsync()` followed by separate `.Select(...)` mapping over the result.
 
-**Existing ABP solutions** that already use `IEntityTypeConfiguration<T>` per entity: respect the convention; do not mix patterns within one module. The convention used is detected by `repo-scout`; reconciler emits in the matching style.
+**Detection regex** (per `appservice-impl` files):
+```
+\.ToListAsync\s*\(\s*\)[^\n]*\n[^\n]*\.Select\s*\(
+```
 
-## 9. Tenant scoping
+(I.e., a `.ToListAsync()` call followed within a few lines by a `.Select(`.)
 
-`IMultiTenant` entities have `TenantId` set by ABP via `ICurrentTenant` automatically on insert. Domain entity constructors / methods do not accept or assign `TenantId`. The only legitimate explicit set is a deliberate cross-tenant override using `ICurrentTenant.Change(tenantId)` scope — rare, must be in Application or Infrastructure, never Domain.
+**Violation.** halt `QUALITY_VIOLATION` (gate 6).
 
-System-wide / backoffice entities do NOT inherit `IMultiTenant` — that adds unneeded filter overhead.
+## Gate 7 — Soft-delete handling
 
-**Forbidden in Domain layer:** any `entity.TenantId = ...` or `TenantId` constructor parameter.
+**Rule.** Use `_repository.DeleteAsync(entity)` for soft delete. Do NOT manually assign `IsDeleted`, `DeleterId`, or `DeletedTime` — ABP populates them.
 
-## 10. Logging
+**Detection regex** (per Domain/Application files):
+```
+\.IsDeleted\s*=|\.DeleterId\s*=|\.DeletedTime\s*=
+```
 
-Every Command realization (AppService method, BackgroundJob.ExecuteAsync, HostedService iteration, Hub method, EventHandler.HandleEventAsync) injects `ILogger<T>` via constructor and emits, at minimum:
+**Violation.** halt `QUALITY_VIOLATION` (gate 7).
 
-- **Entry:** `_logger.LogInformation("Entering {Method} for user {UserId} with input {@Input}", ...)`. PII fields masked.
-- **Exit:** `_logger.LogInformation("Exiting {Method} with result {ResultSummary}", ...)`. Lists log row count, not the full result.
-- **Exception:** `_logger.LogError(ex, "Failed {Method}: {Message}", ...)` inside catch.
+## Gate 8 — EF config style consistency (CRC-E1)
 
-Structured (`{Placeholder}`), not interpolated (`$"..."`). Levels: Information for normal flow, Warning for recoverable issues, Error for thrown exceptions.
+**Rule.** Use `ModelBuilder` extension method pattern (`Configure<Module>` extension). Do NOT mix per-entity `IEntityTypeConfiguration<T>` classes with the extension pattern within one module.
 
----
+**Detection.** If this run touched an EF config:
+- Synthesizer's edit produced `IEntityTypeConfiguration<T>` AND scout reports an existing `Configure<Module>` extension method → halt.
+- Or vice versa.
 
-## Synthesizer responsibilities
+**Violation.** halt `QUALITY_VIOLATION` (gate 8).
 
-After writing each file, the synthesizer scans it against gates 1–10. Gate 1 (controller) is an **abort** — halt synthesis, surface the violation, refuse to continue. Gates 2–10 are **halt-pending-decision** — main agent re-asks the user via `AskUserQuestion` (revise / override / cancel).
+## Gate 9 — Tenant scoping (CRC-D1)
 
-After all files are written and `dotnet build` passes, the synthesizer emits a per-gate coverage report consumed by the final report writer.
+**Rule.** Domain layer files must NOT contain `tenantId` constructor parameters or assign `TenantId` directly. ABP populates `TenantId` automatically via `ICurrentTenant` scope.
 
-## Planner pre-flight responsibilities
+**Detection regex** (per `<Ns>.Domain/**/*.cs`):
+```
+TenantId\s*=|Guid\??\s+tenantId\s*[,)]
+```
 
-Before any synthesis dispatch, the planner walks every `create` and `update_edit` descriptor and checks whether the planned content (template kind + edit payload) would trigger any gate violation. Pre-flight failures surface in the Phase 6 approval preview — the user sees them before approving.
+(Ctor parameter named `tenantId` of type `Guid` or `Guid?`, or any assignment to `TenantId`.)
 
-This duplication (plan-time and synth-time) is intentional: plan-time catches cheap violations early, synth-time catches anything the templates generate that the planner couldn't have predicted (e.g., template parameter substitution producing a switch statement).
+**Violation.** halt `QUALITY_VIOLATION` (gate 9).
+
+## Gate 10 — Structured logging
+
+**Rule.** Every AppService / Job / HostedService / Hub method body has at least one `_logger.LogInformation` / `LogWarning` / `LogError` call. No `Console.WriteLine`. No `string.Format(...)` interpolation passed to logger; use structured templates.
+
+**Detection regex** (per AppService/Job/HostedService/Hub method body):
+```
+_logger\.Log(Information|Warning|Error)\s*\(
+```
+
+If method body lacks any match → flag.
+
+**Violation.** halt `QUALITY_VIOLATION` (gate 10).
+
+## Gate output schema
+
+Per file:
+```
+{
+  path,
+  gates: {
+    gate_1_no_controller: "pass" | "violation" | "n/a",
+    gate_2_no_events: "...", gate_3_exception_handling: "...",
+    gate_4_naming: "...", gate_5_dynamic_sorting: "...",
+    gate_6_select_before_fetch: "...", gate_7_soft_delete: "...",
+    gate_8_ef_style: "...", gate_9_tenant_scope: "...",
+    gate_10_logging: "..."
+  },
+  violations: [{gate, line, snippet, suggestion}]
+}
+```
+
+## Override behaviour
+
+User can override gates 2–10 (not gate 1) at Phase 5 via the artifact-plan approval flow. Overrides recorded in the final report's Quality Coverage Summary as "violation, user override". Gate 1 violations cannot be overridden — phase aborts.

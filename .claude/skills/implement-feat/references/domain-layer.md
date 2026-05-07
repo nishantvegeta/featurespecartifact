@@ -1,89 +1,151 @@
-# Domain Layer — Aggregates, Builders, Domain Methods
+# Domain Layer — Aggregate Roots, Child Entities, Value Objects
 
-Authoritative patterns for Domain layer synthesis: `aggregate-root`, `child-entity`, `value-object`.
+The Domain layer encodes business rules. ABP-shaped: aggregates inherit a base, expose state via private setters, mutate via methods, never publish events directly.
 
-## Aggregate Root Skeleton
+## File layout
 
-Structural layout in order:
+```
+<Ns>.Domain/<Feature>/
+    <Root>.cs                    // aggregate root
+    <Child>.cs                   // child entities (one per file)
+    <ValueObject>.cs             // value objects
+    <Feature>DomainService.cs    // when domain service is needed
+```
 
-1. File header XML doc with `<see href="<source_link>"/>`.
-2. `using` directives (sorted: System, Microsoft, Volo.Abp.*, project namespaces).
-3. Namespace `<Ns>.<Feature>`.
-4. Class declaration (see Tenancy section for `IMultiTenant` rules).
-5. Public read-only properties with private setters.
-6. Read-only collection exposures backed by private lists.
-7. Private parameterless constructor for EF Core.
-8. Internal constructor taking every required field — called only by `Builder.Build()`.
-9. Static `Create(...)` factory delegating to `new Builder(...).Build()`.
-10. Domain methods — one per postcondition referenced by a Command.
-11. Nested `Builder` class at the bottom.
+## 11-step aggregate layout (synthesizer template order)
 
-## Builder Pattern
+1. File header XML doc with `<see href="<wiki-url>"/>` to the FS Entity page
+2. `using` directives
+3. Namespace declaration
+4. Class declaration with base class + interfaces
+5. Public properties (private setters)
+6. Private backing fields
+7. Public read-only collections
+8. **Constructors** — protected parameterless (EF), private value-taking (Builder), public NEVER (gate 1 of HARD-GATE)
+9. Static factory `Create(...)` (delegates to Builder)
+10. Public mutator methods (one per business operation; runs invariants)
+11. Nested `Builder` class (private constructor wrapper)
 
-Enforces invariants **before** the aggregate exists. No invalid aggregate may ever be constructed.
-
-- `public sealed class Builder` nested inside aggregate.
-- Constructor takes required inputs. Optional fluent setters (`WithDescription(...)`, `WithLimit(...)`).
-- `Build()`: validate invariants → throw `BusinessException` on failure → call internal constructor on success.
-- Builder never has side effects (no persistence, no events, no logging).
+## Builder pattern
 
 ```csharp
-public static <Entity> Create(<required-args>)
+public class LoanApplication : FullAuditedAggregateRoot<Guid>, IMultiTenant
 {
-    return new Builder(<required-args>).Build();
+    public Guid? TenantId { get; private set; }
+    public string ApplicantName { get; private set; } = null!;
+    public decimal Amount { get; private set; }
+    public LoanStatus Status { get; private set; }
+
+    private readonly List<LoanComment> _comments = new();
+    public IReadOnlyCollection<LoanComment> Comments => _comments.AsReadOnly();
+
+    protected LoanApplication() { }    // EF only
+
+    private LoanApplication(Guid id, string applicantName, decimal amount) : base(id)
+    {
+        ApplicantName = applicantName;
+        Amount = amount;
+        Status = LoanStatus.Submitted;
+    }
+
+    public static LoanApplication Create(Guid id, string applicantName, decimal amount)
+        => new Builder(id).WithApplicantName(applicantName).WithAmount(amount).Build();
+
+    public void Approve(Guid approverId)
+    {
+        if (Status != LoanStatus.Submitted)
+            throw new BusinessException(LoanApplicationConstants.ErrorMessages.CannotApproveNonSubmitted);
+
+        Status = LoanStatus.Approved;
+    }
+
+    private class Builder
+    {
+        private readonly Guid _id;
+        private string? _applicantName;
+        private decimal _amount;
+
+        public Builder(Guid id) { _id = id; }
+
+        public Builder WithApplicantName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new BusinessException(LoanApplicationConstants.ErrorMessages.ApplicantNameRequired);
+            _applicantName = name;
+            return this;
+        }
+
+        public Builder WithAmount(decimal amount)
+        {
+            if (amount <= 0)
+                throw new BusinessException(LoanApplicationConstants.ErrorMessages.AmountMustBePositive);
+            _amount = amount;
+            return this;
+        }
+
+        public LoanApplication Build()
+        {
+            if (_applicantName == null)
+                throw new BusinessException(LoanApplicationConstants.ErrorMessages.ApplicantNameRequired);
+            return new LoanApplication(_id, _applicantName, _amount);
+        }
+    }
 }
 ```
 
-AppServices and Domain Services call `Create(...)`, never `new Builder(...)` directly.
+Why Builder: invariants run in a place that's testable in isolation, and `Create(...)`'s signature is short even when the aggregate has many required fields.
 
-## Domain Method Conventions
+## CRC-D1 — No explicit TenantId in constructors
 
-- Name after business operation: `Activate()`, `ChangeCreditLimit(decimal)`, `MarkAsApproved(Guid approverId)`.
-- Parameters are primitives or Value Objects — never DTOs.
-- Validate preconditions first. Use `Check.NotNull(...)` from ABP or throw `BusinessException`.
-- Mutate private state. Always `BusinessException` with codes from `<Feature>Constants.ErrorMessages`.
-- Never inject dependencies, call repositories, await, log, or mutate children directly.
-
-## Child Entity Rules
-
-`internal` constructor — root creates children. Mutators are methods on child called by root. No navigation to root. No domain events.
-
-## Value Object Rules
-
-Inherits `ValueObject`. Private constructor for EF. Public constructor validates and assigns. Override `GetAtomicValues()`. Immutable — no setters, no mutators.
-
-## Collections on Root
-
-Backing: `private readonly List<<Child>> _<plural>;`
-Exposed: `public IReadOnlyCollection<<Child>> <Plural> => _<plural>.AsReadOnly();`
-Add/remove only via aggregate methods with validation.
-
-## Tenancy (CRC-D1, CRC-D2)
-
-**CRC-D1: No explicit TenantId assignment.** Do NOT pass `tenantId` to entity constructors or Builders. ABP's `ICurrentTenant` scope handles it automatically on insert.
+Aggregate constructors must NOT take a `tenantId` parameter. ABP populates `TenantId` automatically via `ICurrentTenant` scope when the entity is inserted.
 
 ```csharp
-// WRONG — don't pass tenantId
-var item = new ChecklistItem(GuidGenerator.Create(), tenantId, nextSerialNumber, ...);
+// CORRECT — no tenantId param
+private LoanApplication(Guid id, string name, decimal amount) : base(id) { ... }
 
-// CORRECT — ABP handles tenant scope
-var item = new ChecklistItem(GuidGenerator.Create(), nextSerialNumber, ...);
+// WRONG — synthesizer refuses
+private LoanApplication(Guid id, string name, decimal amount, Guid? tenantId) : base(id)
+{
+    TenantId = tenantId;
+}
 ```
 
-**CRC-D2: IMultiTenant only for tenant-specific entities.** If entity is managed by backoffice (system-wide config like bank settings), do NOT implement `IMultiTenant`. Only tenant-specific entities need it. Consult the FS page to determine if the entity is tenant-scoped.
+## CRC-D2 — IMultiTenant only for tenant-specific entities
 
-```csharp
-// Tenant-specific entity
-public class LoanApplication : FullAuditedAggregateRoot<Guid>, IMultiTenant
+Apply `IMultiTenant` ONLY when the entity is owned by a specific tenant. Cross-tenant entities (system audit logs, tenant configuration, billing platform records) MUST NOT carry `IMultiTenant`.
 
-// System-wide config (bank managed) — NO IMultiTenant
-public class LcChecklistItem : FullAuditedAggregateRoot<Guid>
-```
+If FS Entity page is silent on tenancy and the bounded context is tenant-scoped, default to `IMultiTenant`. If FS marks the entity as cross-tenant, omit it.
 
-## Soft Delete
+## Soft delete
 
-`FullAuditedAggregateRoot<Guid>` provides `IsDeleted`, `DeleterId`, `DeletionTime`. Never redeclare. Domain methods never set these — ABP handles via `_repository.DeleteAsync`.
+Aggregates inheriting `FullAuditedAggregateRoot<TKey>` automatically implement `ISoftDelete`. Repository `DeleteAsync(entity)` sets `IsDeleted = true`, populates `DeleterId`, `DeletedTime`. Query filter `!IsDeleted` is auto-applied by ABP — do NOT add explicit `HasQueryFilter` (CRC-E2).
 
-## Concurrency Stamp
+Skill never assigns `IsDeleted` / `DeleterId` / `DeletedTime` directly (gate 7).
 
-`AggregateRoot<TKey>` implements `IHasConcurrencyStamp` automatically. Never assigned in domain code. Update DTOs carry stamp; ABP validates on `UpdateAsync`.
+## Concurrency stamp
+
+`FullAuditedAggregateRoot` provides `ConcurrencyStamp`. Update DTO carries it; AppService passes via `SetConcurrencyStamp` before `UpdateAsync`. EF Core handles the optimistic check.
+
+## Invariants location
+
+| Invariant kind | Location |
+|---|---|
+| "field must be non-empty" | Builder method |
+| "value within range" | Builder method |
+| "transition only allowed in state X" | mutator method |
+| "across multiple aggregates" | DomainService |
+| "uniqueness against database" | DomainService (queries via repo) |
+
+Aggregate methods throw `BusinessException(<key>)`; localizer at HTTP boundary turns it into a translated message.
+
+## Anti-patterns
+
+- Public constructor on aggregate root
+- Setter visibility `public` on aggregate properties (always `private set`)
+- `void Mutate(state)` methods that just assign without running invariants
+- Direct `_collection.Add(...)` from AppService (use a domain method)
+- Cross-aggregate orchestration inside one aggregate's method (use DomainService)
+- Aggregate calling `ILocalEventBus.PublishAsync` (gate 2)
+- `tenantId` constructor parameter (CRC-D1)
+- `IMultiTenant` on cross-tenant entity (CRC-D2)
+- Ctor running EF queries — keep aggregates pure

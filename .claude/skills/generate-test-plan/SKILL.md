@@ -1,6 +1,6 @@
 ---
 name: generate-test-plan
-description: "Use when a QA engineer needs a test plan generated from an FRS document or raw application code — NOT from user stories. Walks every structured section of the FRS (Functional Requirements, Acceptance Criteria, Main Flow, Alternative Flows, Exception Flows, Edge Cases, Business Rules, Notifications, Form Fields) AND auto-generates implicit TCs the source leaves unstated (validation, cross-field rules, state transitions, modal/view interactions, session edge cases, multi-tenancy, authorization, concurrency). Produces TC files in the docs/wiki repo at {docs_repo}/test-plans/{feature}/{use-case}/{feature}-TC-NNN.md, with each TC tracing back to its FR-ID / AC-ID / BR-ID / EC-ID / matrix row so coverage is auditable. The skill auto-discovers the docs/wiki repo (sibling lookup, then grandparent lookup, then asks). FRS input → placeholder selectors; raw-code input → selectors extracted from code."
+description: "Use when a QA engineer needs a test plan generated from an FRS document or raw application code — NOT from user stories. Walks every structured section of the FRS (Functional Requirements, Acceptance Criteria, Main Flow, Alternative Flows, Exception Flows, Edge Cases, Business Rules, Notifications, Form Fields), auto-generates implicit TCs the source leaves unstated (validation, cross-field rules, state transitions, modal/view interactions, session edge cases, multi-tenancy, authorization, concurrency), AND populates a per-TC Test Data section with concrete or templated values derived from each field's constraints. Produces TC files in the docs/wiki repo at {docs_repo}/test-plans/{feature}/{use-case}/{feature}-TC-NNN.md, with each TC tracing back to its FR-ID / AC-ID / BR-ID / EC-ID / matrix row so coverage is auditable. The skill auto-discovers the docs/wiki repo (sibling lookup, then grandparent lookup, then asks). FRS input → placeholder selectors; raw-code input → selectors extracted from code. Test Data lives in each TC and is consumed by `generate-test-suite` (phase 2)."
 ---
 
 # Generate Test Plan from Source (FRS / Raw Code)
@@ -10,6 +10,7 @@ This skill produces **QA-focused E2E test plans** from a Functional Requirements
 1. **Walks the FRS structurally** — every section that can produce TCs (FRs, ACs, Exception Flows, Edge Cases, Business Rules, Alternative Flows, Notifications, Form Fields) is processed in turn so no section is silently skipped.
 2. **Walks a Required Coverage Matrix** — implicit TCs (duplicate values, max length, required fields, format, modal dismissal patterns, read-only enforcement, state transitions, cross-field rules, session edge cases, multi-tenancy, authorization, concurrency) are emitted whenever the data model or operation type implies them, regardless of whether the source enumerates them.
 3. **Traces every TC back to its source** — FR-ID, AC-ID, BR-ID, EC-ID, exception flow ID, or "Matrix" — so QA can audit coverage section by section.
+4. **Generates Test Data per TC** — populates a `## Test Data` section in every TC, with concrete or templated values derived from each field's constraints and the TC's matrix intent. Consumed by `generate-test-suite` (phase 2) at codegen time. See `references/test-data-generation.md` for the value-generation rules.
 
 | Input type | Selector behaviour |
 |---|---|
@@ -42,6 +43,14 @@ Do NOT generate TCs for items listed in the FRS "Out of Scope" section (typicall
 
 <HARD-GATE>
 Do NOT invent answers to FRS Open Questions (typically Section 22). If a TC depends on an unresolved OQ, prefix the TC title with `PENDING — ` and note the OQ-ID in Postconditions. The TC stays in the plan as a placeholder so it isn't forgotten when the OQ resolves.
+</HARD-GATE>
+
+<HARD-GATE>
+Do NOT fabricate concrete Test Data values when the FRS doesn't constrain the field. The skill generates Test Data per `references/test-data-generation.md`, which uses the data-model fact sheet (Step 4) — required, max length, format, uniqueness, etc. — to produce values. When a constraint is genuinely absent (free-form notes field, no length cap, no format), emit `Field Name: TODO — constraint not parseable; manual fill needed` rather than guessing. Same honest-failure model as TODO selectors. Better than a value the test types and then fails on.
+</HARD-GATE>
+
+<HARD-GATE>
+Test Data values for unique fields MUST include `{timestamp}` or `{uuid}` in their happy-path templated form. Without per-run uniqueness, parallel test runs collide and re-runs of a single test fail because the value is already in the database from the prior run. The Step 6.5 verification rules (per `test-data-generation.md`) check this; failures block Step 9.
 </HARD-GATE>
 
 ---
@@ -127,7 +136,20 @@ Throughout this skill, the resolved path is referred to as `{docs_repo}`. All TC
 ## Postconditions
 - {postcondition 1}
 - {postcondition 2}
+
+## Test Data
+
+### Pre-existing State
+- {prose description of database state required before the test runs — e.g. "A Rule Template with Code 'TC-DUP-001' exists"}
+- {prose description of user/role/permission state}
+
+### Form Input
+* {Field Name 1}: {value or templated value or `description → directive(args)`}
+* {Field Name 2}: {value}
+* {Field Name 3}: {value}
 ```
+
+`### Pre-existing State` is omitted entirely when the TC needs no database state (most happy-path TCs). `### Form Input` is omitted when the TC has no `fill` / `select` / `toggle` steps (pure read/view TCs).
 
 ### Format rules
 
@@ -140,6 +162,7 @@ Throughout this skill, the resolved path is referred to as `{docs_repo}`. All TC
 - Dynamic selectors use the template notation with curly braces: `` `[data-testid="checklist-row-{item.id}"]` ``
 - Preconditions describe the required state **before** the test runs (data, role, environment, session state)
 - Postconditions describe the expected system state **after** all steps pass (UI state, DB state if applicable, audit log entry, modal closed/open)
+- **Test Data** has up to two sub-sections: `### Pre-existing State` (prose, for DB/auth/permission state) and `### Form Input` (one bullet per field touched by `fill`/`select`/`toggle` steps). Field names match the FRS Form Fields section verbatim (human-readable, not camelCase). Values are concrete literals, templated tokens (`{timestamp}`, `{counter}`, `{uuid}`, `{tcNumber}`), or `description → directive(args)` for matrix-driven violations. See `references/test-data-generation.md` for the value-generation rules and directive vocabulary.
 - Horizontal rules (`---`) separate the header, steps, and conditions sections
 - For PENDING TCs, the title is prefixed `PENDING — OQ-NN —` and Postconditions name the OQ-ID being awaited
 
@@ -506,10 +529,11 @@ You MUST complete these in order:
 4. **Extract — three parallel outputs:** (a) Section-walkthrough TC list (FRS only); (b) Source-driven requirement list; (c) Data-model fact sheet
 5. **Identify use case categories** — determine the sub-folders (display, view, add, edit, delete, etc.)
 6. **Group into TCs per category — three passes:** Pass 0 from the Section Walkthrough; Pass 1 from source-driven requirements; Pass 2 from the Required Coverage Matrix. Dedup across passes by attaching extra trace IDs to existing TCs rather than duplicating.
-7. **Derive steps per TC** — write Step / Selector / Expected Result rows
-8. **Resolve selectors (code input only)** — scan source for `data-testid`, `id`, `name`, `aria-label`
-9. **Emit TC files** — create each file under the correct sub-folder in `{docs_repo}/test-plans/`
-10. **Print summary** — show a table grouped by use case, including any skipped files, matrix coverage, **and FR/AC/BR/EC traceability coverage**
+7. **Generate Test Data per TC** — populate `### Pre-existing State` and `### Form Input` sub-sections per `references/test-data-generation.md`, derived from the data-model fact sheet and the TC's matrix intent
+8. **Derive steps per TC** — write Step / Selector / Expected Result rows
+9. **Resolve selectors (code input only)** — scan source for `data-testid`, `id`, `name`, `aria-label`
+10. **Emit TC files** — create each file under the correct sub-folder in `{docs_repo}/test-plans/`
+11. **Print summary** — show a table grouped by use case, including any skipped files, matrix coverage, **and FR/AC/BR/EC traceability coverage**
 
 
 ---
@@ -696,6 +720,58 @@ Within each category sub-folder, generate TCs in three passes. Dedup across pass
 
 - **Verify:** Each category has at least a happy path TC. Every applicable matrix row has a TC OR is merged into an existing TC's trace. Every FR-ID and AC-ID has at least one TC tracing to it. No TC exceeds 10 steps.
 - **On failure:** Split large TCs; ensure every applicable matrix row is covered or explicitly justified as not-applicable in the data-model fact sheet; ensure every FR and AC traces somewhere.
+
+### Step 6.5: Generate Test Data per TC
+
+For every TC produced in Step 6, populate the Test Data section. The rules live in `references/test-data-generation.md`; this step orchestrates them.
+
+**Inputs:**
+- The TC's title category (Happy Path / Validation / Duplicate / Max Length / etc.) — identifies the matrix row that triggered it (or "happy" / source-driven for Pass 0/1).
+- The TC's Steps — identifies which fields are touched by `fill` / `select` / `toggle` actions.
+- The data-model fact sheet from Step 4(c) — provides each field's constraints (required, max length, format, uniqueness, type).
+- The FRS Form Fields section — provides field display names, declared options for selects, and any FRS-stated values.
+
+**Process:**
+
+1. **Identify the touched fields.** For each Step in the TC, parse the action verb (Enter / Type / Select / Toggle / Check / Choose / Activate). Steps with one of these verbs reference a field. Extract the field name from the step text — normalise to the FRS Form Fields display name (substring match, case-insensitive).
+
+2. **Identify the TC's intent.** Match the title's category against the directive vocabulary in `test-data-generation.md`:
+   - `(Happy Path)` → all fields get happy-path values
+   - `(Required Field Missing — X)` → field X gets `empty` directive; others happy-path
+   - `(Max Length — X)` → field X gets `violatesMaxLength(N)` directive; others happy-path
+   - `(Duplicate — X)` → field X gets `duplicate(value)` directive; Pre-existing State entry names the duplicate; others happy-path
+   - `(Cross-Field — Y)` → two fields involved in rule Y get violating values; TC title identifies the rule
+   - `(Authorization)` → no field violations; Pre-existing State names the unauthorized user
+   - `(Multi-Tenant)` → no field violations; Pre-existing State names the cross-tenant record
+   - `(Read-Only)` / `(Dismissal)` / `(Edge Case)` for view operations → no Form Input section needed (omit it)
+
+3. **Generate values per field.** Walk the rules in `test-data-generation.md` per field type × intent:
+   - String fields → templated `TC{tcNumber}-{kebab-feature}-{timestamp}` for happy-path uniqueness, specific violations for matrix rows
+   - Numeric fields → midpoint of [min, max] for happy-path, off-by-one for violations
+   - Booleans → `true` / `false` per FRS default or explicit toggle direction
+   - Selects → first declared option for happy-path, or `(select first available option)` if FRS doesn't enumerate
+   - Dates → `2026-01-15` literal for happy-path unless FRS declares a relative constraint
+   - File uploads → `<fixture: validUpload-{feature}.{ext}>` always (binary fixtures can't be generated from prose)
+
+4. **Generate Pre-existing State entries** for matrix-driven TCs that need DB state:
+   - `(Duplicate — X)` → "A {entity} with {X} = '{value}' exists in the database (created via fixture or seed)."
+   - `(Authorization)` → "The current user has no {role/permission} for {entity}."
+   - `(Multi-Tenant)` → "Tenant A has a {entity} with {X}; current user is in Tenant B."
+   - `(Concurrent Edit)` → "Another user has modified the record after the current user loaded it (ConcurrencyStamp mismatch)."
+   - `(FK Delete)` → "A {dependent entity} references the {entity} via {foreign key}."
+
+5. **Verify per the rules in `test-data-generation.md` § Verification rules:**
+   - Every fill/select/toggle step has a matching Test Data entry, or the step's field is explicitly TODO.
+   - Unique fields' happy-path values include `{timestamp}` or `{uuid}`.
+   - Matrix-driven TCs have exactly one field with a violating directive (one violation per TC).
+   - Pre-existing State and directive arguments are consistent (`duplicate('TC-DUP-001')` ↔ State describes Code `TC-DUP-001`).
+   - No two TCs in the same use case have identical happy-path unique-field values (per-TC `{tcNumber}` prevents this when included).
+
+6. **On generation failure for a field**, emit `* Field Name: TODO — constraint not parseable; manual fill needed`. Same TODO model as selectors. Better than fabrication.
+
+**Verify:** Every TC in the use case has a `## Test Data` section. Every TC with `fill`/`select`/`toggle` steps has a `### Form Input` sub-section. Every matrix-driven TC needing DB state has a `### Pre-existing State` sub-section. Verification rules pass.
+
+**On failure:** Block Step 9 emission. Print the failing TC + field + reason. Don't write a TC with malformed Test Data.
 
 ### Step 7: Derive Steps per TC
 
@@ -1068,6 +1144,8 @@ The contrast with what the previous version of this skill would have produced: r
 ## Integration
 
 **Required before:** Input files must be accessible (uploaded or path provided). The docs/wiki repo must exist somewhere reachable by the discovery cascade — or the user must be available to provide the path.
-**Required after:** Explorer skill for resolving `(discovered by explorer)` selectors against live DOM.
+**Required after:** Explorer skill for resolving `(discovered by explorer)` selectors against live DOM. `generate-test-suite` consumes the emitted TCs (including the Test Data section) to produce Playwright specs.
+**References:**
+- `references/test-data-generation.md` — value-generation rules (templated tokens, directive vocabulary, per-field-type × per-matrix-intent recipes)
 **Alternative workflow:** `skill:generate-test-plan-from-stories` — when input is user stories instead of FRS/code.
 **Companion skill:** `skill:generate-frs` — produces FRS documents in the structure this skill walks.
